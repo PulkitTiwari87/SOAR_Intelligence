@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "public": true,
+  "builds": [
+    {
+      "src": "dashboard/frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/dashboard/frontend/$1" }
+  ]
+}

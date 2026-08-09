@@ -1,0 +1,60 @@
+# SOAR Project .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pkl
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+
+# AI Model files (regenerated via --train)
+ai/triage/triage_model.pkl
+ai/phishing/phishing_model.pkl
+ai/phishing/phishing_vectorizer.pkl
+ai/anomaly/anomaly_model.pkl
+ai/anomaly/anomaly_scaler.pkl
+ai/optimizer/response_history.json
+
+# Feedback / self-learning data (runtime)
+ai/feedback/feedback_store.json
+ai/feedback/retrain_history.json
+ai/feedback/phishing_feedback.json
+ai/feedback/anomaly_baseline.json
+
+# Generated reports
+reports/*.pdf
+
+# Database (runtime)
+dashboard/*.db
+
+# Environment
+.env
+
+# Docker generated
+wazuh-certificates/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.gemini/
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+**/.env
+
+# Local database
+dashboard/backend/data/
+

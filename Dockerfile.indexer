@@ -1,0 +1,26 @@
+FROM wazuh/wazuh-indexer:4.9.0
+USER root
+
+# Create the natively allowed certs directory
+RUN mkdir -p /usr/share/wazuh-indexer/certs
+
+# Copy certificates exactly as named
+COPY ./wazuh-certificates/root-ca.pem /usr/share/wazuh-indexer/certs/root-ca.pem
+COPY ./wazuh-certificates/wazuh.indexer-key.pem /usr/share/wazuh-indexer/certs/indexer-key.pem
+COPY ./wazuh-certificates/wazuh.indexer.pem /usr/share/wazuh-indexer/certs/indexer.pem
+COPY ./wazuh-certificates/admin.pem /usr/share/wazuh-indexer/certs/admin.pem
+COPY ./wazuh-certificates/admin-key.pem /usr/share/wazuh-indexer/certs/admin-key.pem
+
+# Set exact permissions required by OpenSearch
+RUN chown -R wazuh-indexer:wazuh-indexer /usr/share/wazuh-indexer/certs && \
+    chmod -R 500 /usr/share/wazuh-indexer/certs && \
+    chmod 400 /usr/share/wazuh-indexer/certs/*
+
+# Redirect opensearch.yml to use the allowed cert directory
+RUN sed -i 's|/etc/wazuh-indexer/certs|/usr/share/wazuh-indexer/certs|g' /usr/share/wazuh-indexer/opensearch.yml
+
+# Disable system call filter to pass bootstrap checks on Macs
+RUN echo '' >> /usr/share/wazuh-indexer/opensearch.yml && \
+    echo 'bootstrap.system_call_filter: false' >> /usr/share/wazuh-indexer/opensearch.yml
+
+USER wazuh-indexer

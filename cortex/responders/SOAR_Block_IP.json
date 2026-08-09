@@ -1,0 +1,42 @@
+{
+    "name": "SOAR_Block_IP",
+    "version": "1.0",
+    "author": "SOAR Project",
+    "url": "https://github.com/soar-project",
+    "license": "MIT",
+    "description": "Blocks a malicious IP address via Wazuh Active Response (firewall-drop). Authenticates with the Wazuh Manager API and triggers the response on the target agent.",
+    "dataTypeList": [
+        "ip"
+    ],
+    "command": "cortex/responders/wazuh_block_ip.py",
+    "baseConfig": "SOAR_Block_IP",
+    "configurationItems": [
+        {
+            "name": "wazuh_api_url",
+            "description": "Wazuh Manager API URL",
+            "type": "string",
+            "multi": false,
+            "required": true,
+            "defaultValue": "https://wazuh.manager:55000"
+        },
+        {
+            "name": "wazuh_api_user",
+            "description": "Wazuh API username",
+            "type": "string",
+            "multi": false,
+            "required": true,
+            "defaultValue": "wazuh-wui"
+        },
+        {
+            "name": "wazuh_api_password",
+            "description": "Wazuh API password",
+            "type": "string",
+            "multi": false,
+            "required": true,
+            "defaultValue": "MyS3cr37P450r.*-"
+        }
+    ],
+    "registration_required": false,
+    "subscription_required": false,
+    "free_subscription": true
+}

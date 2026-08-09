@@ -1,0 +1,42 @@
+<!-- Local rules for Wazuh -->
+<group name="local,syslog,sshd,">
+
+  <!-- 
+    Example Custom Rule: Detect multiple failed SSH logins from the same IP 
+    and raise severity to trigger the SOAR integration.
+  -->
+  <rule id="100001" level="10" frequency="5" timeframe="120">
+    <if_matched_sid>5716</if_matched_sid>
+    <same_source_ip />
+    <description>Multiple SSH authentication failures from the same source IP.</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failures,pci_dss_10.2.4,pci_dss_10.2.5,pci_dss_11.4,</group>
+  </rule>
+
+  <!--
+    Example Custom Rule: Detect execution of suspicious commands 
+    (e.g., netcat used for reverse shell)
+  -->
+  <rule id="100002" level="12">
+    <if_sid>530</if_sid>
+    <match>nc -e /bin/bash|nc -e /bin/sh|netcat -e</match>
+    <description>Suspicious network utility usage detected (Possible Reverse Shell).</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+    <group>syscheck,suspicious_activity,</group>
+  </rule>
+
+  <!--
+    Example Custom Rule: Detect specific keyword in a log file.
+  -->
+  <rule id="100003" level="8">
+    <if_sid>530</if_sid>
+    <match>MALWARE_DETECTED|phishing_url_clicked</match>
+    <description>A malware or phishing related event was logged.</description>
+    <group>malware_detection,phishing,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,18 @@
+{
+  "name": "SOAR_IP_Reputation",
+  "version": "1.0",
+  "author": "SOAR Project",
+  "url": "https://github.com/soar-project",
+  "license": "MIT",
+  "description": "Checks IP reputation against known threat intelligence databases. Returns a risk score (0-100) and classification (safe/suspicious/malicious).",
+  "dataTypeList": ["ip"],
+  "command": "cortex/analyzers/mock_ip_reputation.py",
+  "baseConfig": "SOAR_IP_Reputation",
+  "configurationItems": [],
+  "registration_required": false,
+  "subscription_required": false,
+  "free_subscription": true,
+  "service_homepage": "",
+  "service_logo": {},
+  "screenshots": []
+}

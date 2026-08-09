@@ -1,0 +1,14 @@
+# Ignore everything except the dashboard
+ai/
+scripts/
+integrations/
+wazuh-certificates/
+cortex/
+thehive/
+misp/
+docker-compose.yml
+Dockerfile*
+*.md
+*.py
+*.ipynb
+dashboard/backend/
