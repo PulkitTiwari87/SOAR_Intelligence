@@ -1,0 +1,7 @@
+# Development / CI tooling.  Install: pip install -r requirements-dev.txt
+-r requirements.txt
+pytest>=8.0
+ruff>=0.5
+bandit>=1.7
+pip-audit>=2.7
+imbalanced-learn>=0.12   # only for the offline KDD experiment in ai/triage/train_soar2_model.py

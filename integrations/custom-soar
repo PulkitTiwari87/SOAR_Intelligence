@@ -1,0 +1,62 @@
+#!/var/ossec/framework/python/bin/python3
+"""Wazuh -> SOAR Intelligence forwarder (custom integration `custom-soar`).
+
+Wazuh's integrator calls:  custom-soar <alert_file> <api_key> <hook_url>
+  api_key   = the SOAR INGEST_API_KEY   (<api_key> in ossec.conf)
+  hook_url  = SOAR API base URL         (<hook_url> in ossec.conf, e.g. http://soar-api:8000)
+
+Only the standard library is used so it runs inside Wazuh's embedded Python. The alert is posted
+unchanged to POST /api/events (source "wazuh"); SOAR normalizes, correlates and analyzes it.
+Install: copy to /var/ossec/integrations/custom-soar, chmod 750, chown root:wazuh, restart wazuh-manager.
+"""
+import json
+import logging
+import ssl
+import sys
+import urllib.error
+import urllib.request
+
+LOG_FILE = "/var/ossec/logs/integrations.log"
+TIMEOUT = 15
+
+logging.basicConfig(filename=LOG_FILE, level=logging.INFO,
+                    format="%(asctime)s %(levelname)s [custom-soar]: %(message)s")
+
+
+def main() -> int:
+    if len(sys.argv) < 4:
+        print("Usage: custom-soar <alert_file> <api_key> <hook_url>", file=sys.stderr)
+        return 1
+    alert_file, api_key, hook_url = sys.argv[1], sys.argv[2], sys.argv[3].rstrip("/")
+    if not api_key:
+        logging.error("no api_key configured; refusing to send")
+        return 1
+    try:
+        with open(alert_file, encoding="utf-8") as f:
+            alert = json.load(f)
+    except (OSError, ValueError) as e:
+        logging.error("cannot read alert %s: %s", alert_file, e)
+        return 1
+
+    req = urllib.request.Request(
+        f"{hook_url}/api/events", method="POST",
+        data=json.dumps({"source": "wazuh", "payload": alert}).encode(),
+        headers={"Content-Type": "application/json", "X-API-Key": api_key})
+    # TLS is verified by default for https hook URLs; plain http is fine on the internal docker network.
+    ctx = ssl.create_default_context() if hook_url.startswith("https") else None
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT, context=ctx) as r:  # noqa: S310 - URL is admin-configured
+            body = json.loads(r.read().decode() or "{}")
+        res = (body.get("results") or [{}])[0]
+        logging.info("sent rule %s -> %s", (alert.get("rule") or {}).get("id"),
+                     res.get("incident_number") or res.get("error") or "stored")
+        return 0
+    except urllib.error.HTTPError as e:
+        logging.error("SOAR rejected alert: HTTP %s", e.code)
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        logging.error("cannot reach SOAR at %s: %s", hook_url, e)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

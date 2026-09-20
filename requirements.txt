@@ -1,24 +1,29 @@
-# SOAR Project Dependencies
-# Install: pip install -r requirements.txt
+# SOAR Intelligence runtime dependencies.  Install: pip install -r requirements.txt
+# Each entry has a concrete use; see docs/DEVELOPMENT.md for what was removed and why.
 
-# Core
-requests>=2.31.0
-urllib3>=2.0.0
+# API + persistence
+fastapi>=0.110          # HTTP API
+uvicorn>=0.27           # ASGI server
+sqlalchemy>=2.0.25      # ORM (SQLite for local dev, PostgreSQL in Docker)
+alembic>=1.13           # schema migrations
+psycopg[binary]>=3.1    # PostgreSQL driver
+pydantic>=2.6           # validation (FastAPI, LLM output schema)
+pydantic-settings>=2.2  # central configuration from environment
 
-# Machine Learning
-scikit-learn>=1.3.0
-xgboost>=2.0.0
-numpy>=1.24.0
-pandas>=2.0.0
+# Security
+pyjwt>=2.8              # session tokens
+bcrypt>=4.1             # password hashing
 
-# NLP / Text Processing
-nltk>=3.8.0
+# HTTP client (threat intel, Wazuh/TheHive/MISP, LLM providers)
+httpx>=0.27
 
-# Graph Analysis
-networkx>=3.1
+# ML / analysis
+numpy>=1.26
+pandas>=2.1
+scikit-learn>=1.3       # TF-IDF, IsolationForest, KMeans, metrics
+xgboost>=2.0            # triage model (native JSON format + TreeSHAP explanations)
+joblib>=1.3             # sklearn model bundles (SHA-256 verified before load)
+networkx>=3.1           # blast-radius graph
 
-# LLM (Gemini API)
-google-generativeai>=0.4.0
-
-# PDF Report Generation
-reportlab>=4.0.0
+# Reports
+reportlab>=4.0

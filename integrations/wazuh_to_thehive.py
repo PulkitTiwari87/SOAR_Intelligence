@@ -187,7 +187,7 @@ def main():
     alert_file = sys.argv[1]
 
     try:
-        with open(alert_file, 'r') as f:
+        with open(alert_file) as f:
             alert_data = json.load(f)
         send_to_thehive(alert_data)
     except FileNotFoundError:
