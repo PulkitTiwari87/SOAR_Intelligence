@@ -1,7 +1,8 @@
 # SOAR Intelligence: local stack.
 #
 #   docker compose up -d --build                    core platform (API + UI + PostgreSQL)
-#   docker compose --profile siem up -d --build     + Wazuh / TheHive / Cortex / MISP (lab stack, ~10 GB RAM)
+#   docker compose -f docker-compose.yml -f docker-compose.siem.yml up -d --build
+#                                                   + Wazuh / TheHive / Cortex / MISP (lab stack, ~10 GB RAM)
 #
 # Secrets come from .env (see .env.example). Nothing is hardcoded: required values fail fast.
 
@@ -48,6 +49,8 @@ services:
       - "127.0.0.1:${SOAR_API_PORT:-8000}:8000"
     volumes:
       - soar-data:/app/data
+      # Seeded from the models trained at image build; also where feedback retraining writes.
+      - soar-models:/app/models
     read_only: true
     tmpfs: ["/tmp"]
     <<: *hardening
@@ -66,190 +69,6 @@ services:
     <<: *hardening
     networks: [soar-net]
 
-  # ─────────────── optional SIEM / case-management stack (profile: siem) ───────────────
-  # Lab-grade: uses the vendors' default indexer admin account. Harden with each vendor's tooling
-  # before exposing beyond localhost. Not exercised by the automated tests.
-  wazuh.manager:
-    profiles: [siem]
-    image: wazuh/wazuh-manager:4.9.0
-    hostname: wazuh.manager
-    restart: unless-stopped
-    ulimits:
-      memlock: { soft: -1, hard: -1 }
-      nofile: { soft: 655360, hard: 655360 }
-    ports: ["1514:1514", "1515:1515", "514:514/udp", "127.0.0.1:55000:55000"]
-    environment:
-      WAZUH_INDEXER_HOSTS: wazuh.indexer:9200
-      INDEXER_USERNAME: admin
-      INDEXER_PASSWORD: ${WAZUH_INDEXER_ADMIN_PASSWORD:?Set WAZUH_INDEXER_ADMIN_PASSWORD in .env}
-      API_USERNAME: wazuh-wui
-      API_PASSWORD: ${WAZUH_API_PASSWORD:?Set WAZUH_API_PASSWORD in .env}
-    volumes:
-      - wazuh_api_configuration:/var/wazuh-manager/api/configuration
-      - wazuh_etc:/var/wazuh-manager/etc
-      - wazuh_logs:/var/wazuh-manager/logs
-      - wazuh_queue:/var/wazuh-manager/queue
-      - wazuh_var_multigroups:/var/wazuh-manager/var/multigroups
-      - wazuh_active_response:/var/wazuh-manager/active-response/bin
-      - ./wazuh-certificates/root-ca.pem:/var/wazuh-manager/etc/certs/root-ca.pem:ro
-      - ./wazuh-certificates/wazuh.manager.pem:/var/wazuh-manager/etc/certs/manager.pem:ro
-      - ./wazuh-certificates/wazuh.manager-key.pem:/var/wazuh-manager/etc/certs/manager-key.pem:ro
-      - ./integrations:/var/ossec/integrations-src:ro
-    networks: [soar-net]
-
-  wazuh.indexer:
-    profiles: [siem]
-    build:
-      context: .
-      dockerfile: Dockerfile.indexer
-    hostname: wazuh.indexer
-    restart: unless-stopped
-    environment:
-      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
-      bootstrap.memory_lock: "true"
-      network.host: wazuh.indexer
-      node.name: wazuh.indexer
-      cluster.initial_cluster_manager_nodes: wazuh.indexer
-      node.max_local_storage_nodes: "1"
-      bootstrap.system_call_filter: "false"
-      plugins.security.allow_default_init_securityindex: "true"
-      NODES_DN: CN=wazuh.indexer,OU=Wazuh,O=Wazuh,L=California,C=US
-      plugins.security.ssl.http.pemcert_filepath: /usr/share/wazuh-indexer/config/certs/indexer.pem
-      plugins.security.ssl.http.pemkey_filepath: /usr/share/wazuh-indexer/config/certs/indexer-key.pem
-      plugins.security.ssl.http.pemtrustedcas_filepath: /usr/share/wazuh-indexer/config/certs/root-ca.pem
-      plugins.security.ssl.transport.pemcert_filepath: /usr/share/wazuh-indexer/config/certs/indexer.pem
-      plugins.security.ssl.transport.pemkey_filepath: /usr/share/wazuh-indexer/config/certs/indexer-key.pem
-      plugins.security.ssl.transport.pemtrustedcas_filepath: /usr/share/wazuh-indexer/config/certs/root-ca.pem
-    ulimits:
-      memlock: { soft: -1, hard: -1 }
-      nofile: { soft: 65536, hard: 65536 }
-    ports: ["127.0.0.1:9200:9200"]
-    volumes:
-      - wazuh-indexer-data:/var/lib/wazuh-indexer
-    networks: [soar-net]
-
-  wazuh.dashboard:
-    profiles: [siem]
-    image: wazuh/wazuh-dashboard:4.9.0
-    hostname: wazuh.dashboard
-    restart: unless-stopped
-    ports: ["127.0.0.1:443:443"]
-    environment:
-      SERVER_PORT: "5601"
-      SERVER_HOST: 0.0.0.0
-      INDEXER_URL: https://wazuh.indexer:9200
-      # Wazuh's built-in dashboard service account (lab default); rotate with Wazuh's password tool.
-      DASHBOARD_USERNAME: kibanaserver
-      DASHBOARD_PASSWORD: ${WAZUH_DASHBOARD_PASSWORD:-kibanaserver}
-      SERVER_SSL_CERTIFICATE: /usr/share/wazuh-dashboard/certs/dashboard.pem
-      SERVER_SSL_KEY: /usr/share/wazuh-dashboard/certs/dashboard-key.pem
-      OPENSEARCH_SSL_CERTIFICATE_AUTHORITIES: /usr/share/wazuh-dashboard/certs/root-ca.pem
-      OPENSEARCH_HOSTS: https://wazuh.indexer:9200
-      INDEXER_USERNAME: admin
-      INDEXER_PASSWORD: ${WAZUH_INDEXER_ADMIN_PASSWORD}
-      WAZUH_API_URL: https://wazuh.manager
-      API_USERNAME: wazuh-wui
-      API_PASSWORD: ${WAZUH_API_PASSWORD}
-    volumes:
-      - ./wazuh-certificates/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/dashboard.pem:ro
-      - ./wazuh-certificates/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/dashboard-key.pem:ro
-      - ./wazuh-certificates/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem:ro
-      - wazuh-dashboard-config:/usr/share/wazuh-dashboard/config
-      - wazuh-dashboard-custom:/usr/share/wazuh-dashboard/plugins/wazuh/public/assets/custom
-    depends_on: [wazuh.indexer]
-    networks: [soar-net]
-
-  elasticsearch:
-    profiles: [siem]
-    image: elasticsearch:7.17.9
-    restart: unless-stopped
-    environment:
-      discovery.type: single-node
-      xpack.security.enabled: "false"
-      ES_JAVA_OPTS: -Xms512m -Xmx512m
-    volumes: [elasticsearch-data:/usr/share/elasticsearch/data]
-    networks: [soar-net]
-
-  cassandra:
-    profiles: [siem]
-    image: cassandra:4.0
-    restart: unless-stopped
-    environment:
-      MAX_HEAP_SIZE: 1G
-      HEAP_NEWSIZE: 256M
-      CASSANDRA_CLUSTER_NAME: TheHive
-    volumes: [cassandra-data:/var/lib/cassandra]
-    networks: [soar-net]
-
-  cortex:
-    profiles: [siem]
-    image: thehiveproject/cortex:3.1.7
-    restart: unless-stopped
-    depends_on: [elasticsearch]
-    environment:
-      JAVA_OPTS: -Xms512m -Xmx512m
-      search.index: cortex
-      search.uri: http://elasticsearch:9200
-    ports: ["127.0.0.1:9001:9001"]
-    volumes: [./cortex/responders:/opt/cortex/responders:ro]
-    networks: [soar-net]
-
-  thehive:
-    profiles: [siem]
-    image: strangebee/thehive:5.4.1
-    restart: unless-stopped
-    depends_on: [cassandra, elasticsearch, cortex]
-    environment:
-      JAVA_OPTS: -Xms1g -Xmx1g
-    command:
-      - --secret
-      - ${THEHIVE_SECRET:?Set THEHIVE_SECRET in .env}
-      - --cql-hostnames
-      - cassandra
-      - --index-backend
-      - elasticsearch
-      - --es-hostnames
-      - elasticsearch
-      - --no-config-cortex
-    ports: ["127.0.0.1:9000:9000"]
-    networks: [soar-net]
-
-  misp-db:
-    profiles: [siem]
-    image: mariadb:10.4
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: misp
-      MYSQL_USER: misp
-      MYSQL_PASSWORD: ${MISP_DB_PASSWORD:?Set MISP_DB_PASSWORD in .env}
-      MYSQL_ROOT_PASSWORD: ${MISP_DB_PASSWORD}
-    volumes: [misp-db-data:/var/lib/mysql]
-    networks: [soar-net]
-
-  misp-redis:
-    profiles: [siem]
-    image: redis:6
-    restart: unless-stopped
-    networks: [soar-net]
-
-  misp:
-    profiles: [siem]
-    image: coolacid/misp-docker:core-latest
-    restart: unless-stopped
-    depends_on: [misp-db, misp-redis]
-    environment:
-      MYSQL_HOST: misp-db
-      MYSQL_DATABASE: misp
-      MYSQL_USER: misp
-      MYSQL_PASSWORD: ${MISP_DB_PASSWORD}
-      MISP_ADMIN_EMAIL: admin@admin.test
-      MISP_ADMIN_PASSPHRASE: ${MISP_ADMIN_PASSPHRASE:?Set MISP_ADMIN_PASSPHRASE in .env}
-      MISP_BASEURL: http://localhost:8081
-      CRON_USER_ID: "1"
-      REDIS_FQDN: misp-redis
-    ports: ["127.0.0.1:8081:80"]
-    networks: [soar-net]
-
 networks:
   soar-net:
     driver: bridge
@@ -257,15 +76,4 @@ networks:
 volumes:
   soar-pg:
   soar-data:
-  wazuh_api_configuration:
-  wazuh_etc:
-  wazuh_logs:
-  wazuh_queue:
-  wazuh_var_multigroups:
-  wazuh_active_response:
-  wazuh-indexer-data:
-  wazuh-dashboard-config:
-  wazuh-dashboard-custom:
-  elasticsearch-data:
-  cassandra-data:
-  misp-db-data:
+  soar-models:
