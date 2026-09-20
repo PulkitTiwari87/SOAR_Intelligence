@@ -1,237 +1,281 @@
-#!/usr/bin/env python3
-"""
-Module 3.3: NLP Phishing Parser
-=================================
-Analyzes email body text to detect phishing and Business Email Compromise (BEC).
-Uses TF-IDF + Logistic Regression to classify email intent by:
-  - Urgency signals ("immediately", "urgent", "within 24 hours")
-  - Financial intent ("wire transfer", "bank account", "payment")
-  - Authority impersonation ("CEO", "director", "IT department")
-"""
+"""Phishing analysis: text model + URL/domain/header indicators, with an explanation.
 
+score = 0.5 * text_probability + 0.5 * indicator_score
+  text_probability  TF-IDF + logistic regression trained on ai/phishing/corpus.py (small, hand-
+                    written, template-like: its cross-validation numbers are inflated by that
+                    similarity and are NOT a real-world accuracy estimate)
+  indicator_score   deterministic, transparent checks: lookalike/brand domains, IP-literal hosts,
+                    punycode, risky TLDs, URL shorteners, '@' in URL, link text != link target,
+                    Reply-To mismatch, SPF/DKIM/DMARC failures, display-name brand impersonation.
+
+The equal split is a design choice, not a tuned value; the indicators are given real weight because
+the text model has little training data. The raw email is never modified: `evidence_sha256`
+identifies the exact input analyzed.
+"""
+from __future__ import annotations
+
+import hashlib
+import ipaddress
 import json
-import os
-import pickle
+import logging
 import re
 import sys
-import numpy as np
-import pandas as pd
+import threading
+from html import unescape
+from urllib.parse import urlparse
 
+import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
+from sklearn.pipeline import make_pipeline
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "phishing_model.pkl")
-VECTORIZER_PATH = os.path.join(os.path.dirname(__file__), "phishing_vectorizer.pkl")
+from ai import common
+from ai.phishing.corpus import LEGITIMATE_EMAILS, PHISHING_EMAILS
 
-PHISHING_EMAILS = [
-    # --- BEC (Business Email Compromise) ---
-    "Dear employee, the CEO has requested an immediate wire transfer of $50,000 to vendor account.",
-    "Hi, I'm the new CFO. Please process this invoice payment urgently. Do not discuss with others.",
-    "CEO Office: Please process reimbursement for my travel expenses attached. Handle personally.",
-    "I need you to purchase gift cards for a client meeting today. Keep this confidential.",
-    "Accounts Payable: Please update the vendor bank details to the following new account.",
-    "This is the Managing Director. I need an urgent bank transfer of $35,000 processed today.",
-    "Please wire $28,000 to the attached account. This is confidential and time-sensitive. - CEO",
-    "Can you process a payment for me? I'm in a meeting and can't call. Need it done in 30 mins.",
-    "The board approved bonuses. Send me a list of employee bank details for direct deposit.",
-    "As discussed on our call, please transfer $42,000 to the new supplier account immediately.",
-    # --- Credential Phishing ---
-    "URGENT: Your account has been compromised. Click here immediately to reset your password.",
-    "IT Department: Your mailbox is full. Verify your credentials within 24 hours or lose access.",
-    "Action required: Suspicious login detected. Confirm your identity now to avoid account lockout.",
-    "Microsoft 365: Your subscription is expiring. Renew immediately to avoid service disruption.",
-    "Warning: Your email account will be deactivated unless you confirm your password today.",
-    "IT Security: Mandatory password change required within 2 hours. Use this link.",
-    "Your Google Workspace session has expired. Re-authenticate now to restore access.",
-    "Zoom alert: Your meeting recordings will be deleted in 24 hours. Login to save them.",
-    "Office 365: Multiple failed sign-in attempts. Secure your account immediately.",
-    "Slack notification: Your workspace admin requires you to verify your account.",
-    # --- Spear Phishing ---
-    "Confidential: Salary adjustment notification. Login to HR portal to accept new terms.",
-    "HR Department: Your tax documents are ready. Download them using your company credentials.",
-    "IMPORTANT: Board meeting rescheduled. Download the updated agenda from this secure link.",
-    "Your performance review results are available. Access the HR portal to view your rating.",
-    "Annual bonus confirmation attached. Open the secure PDF to verify your compensation.",
-    "Employee satisfaction survey results are in. Click here to see how your team scored.",
-    # --- Delivery / Service Scams ---
-    "Your package could not be delivered. Click the link to update your shipping information immediately.",
-    "FedEx: Delivery failed. Reschedule your delivery by confirming your address here.",
-    "Amazon: Your order #4829 has been placed. If this wasn't you, click here to cancel.",
-    "Netflix: Your payment method has failed. Update your billing info to avoid suspension.",
-    "Apple: Your iCloud storage is almost full. Upgrade now or risk losing your photos.",
-    "DHL: A package is waiting for customs clearance. Pay the $2.99 fee to release it.",
-    # --- Tech Support Scams ---
-    "Security alert: Someone tried to access your account from Russia. Verify your identity now.",
-    "Bank of America: Unusual activity detected on your account. Login now to secure your funds.",
-    "Your DocuSign document is ready for signature. Click here to review and sign immediately.",
-    "Windows Defender: Critical threat detected on your PC. Call this number immediately.",
-    "Your antivirus subscription has expired. Your device is at risk. Renew now.",
-    "PayPal: We noticed unusual activity. Verify your identity or your account will be limited.",
-    # --- Account Takeover ---
-    "Urgent payment reminder: Transfer the outstanding balance immediately to avoid penalties.",
-    "Please review the attached invoice and authorize payment before end of business today.",
-    "Your Dropbox shared folder access is expiring. Re-authenticate to keep your files.",
-    "LinkedIn: Someone viewed your profile from an unrecognized device. Secure your account.",
-    "Instagram: We detected a login from a new device. Click here to verify it was you.",
-    "WhatsApp: Your account registration code is about to expire. Enter it now.",
-    "Twitter/X Security: Unusual activity detected. Change your password immediately.",
-    "Outlook Web App: Your session will expire in 15 minutes. Click here to stay signed in.",
-    "Adobe Creative Cloud: License violation detected. Verify your subscription now.",
-    "Coinbase: Withdrawal of 2.5 BTC initiated. If this wasn't you, cancel immediately.",
-]
+log = logging.getLogger("ai.phishing")
 
-LEGITIMATE_EMAILS = [
-    # --- Workplace Communication ---
-    "Hi team, just a reminder about our weekly standup meeting tomorrow at 10 AM.",
-    "The quarterly report has been published on the shared drive. Please review at your convenience.",
-    "Congratulations to the sales team for exceeding Q3 targets! Great work everyone.",
-    "Reminder: Office will be closed next Monday for the holiday. Enjoy the long weekend.",
-    "The new employee handbook has been updated. You can find it on the company intranet.",
-    "Team lunch this Friday at noon. Please let me know your dietary preferences.",
-    "Project update: We've completed the first phase of the migration. Details in attached doc.",
-    "Happy birthday, Sarah! Cake in the break room at 3 PM.",
-    "Please submit your timesheets by end of day Friday. Thank you.",
-    "FYI - the conference room on the 3rd floor will be under maintenance next week.",
-    # --- IT / Admin ---
-    "The new software license has been approved. IT will begin installation on Monday.",
-    "Sharing the meeting notes from today's product review. Action items highlighted in yellow.",
-    "Reminder to complete the annual compliance training by the end of the month.",
-    "Great presentation today! The client was very impressed with the demo.",
-    "Welcome aboard, Mike! Looking forward to working with you on the infrastructure team.",
-    "Attached are the design mockups for the new dashboard. Feedback welcome.",
-    "The firmware update for the office printers has been completed. No action needed.",
-    "Our annual company picnic is scheduled for August 15th. RSVP on the events page.",
-    "Meeting cancelled: The vendor postponed the demo to next Thursday. Calendar updated.",
-    "The parking lot will be repaved this weekend. Please use the side entrance on Monday.",
-    # --- Project Updates ---
-    "Sprint retrospective notes are attached. Main action item: improve test coverage.",
-    "The client signed off on the design. We can proceed to the development phase.",
-    "Deployment to staging is complete. Please run your smoke tests when convenient.",
-    "Here are the API documentation updates from the last release. Review at your leisure.",
-    "Database migration will happen this Saturday from 2-4 AM. No action needed from your side.",
-    "The accessibility audit results look great. Only minor issues in the footer component.",
-    # --- HR / Operations ---
-    "Open enrollment for health insurance begins next month. Details on the benefits portal.",
-    "The company town hall is scheduled for next Wednesday at 2 PM. Attendance is optional.",
-    "New parking passes are available at the front desk. Pick yours up this week.",
-    "Flu shot clinic will be in Conference Room B next Tuesday from 10 AM to 2 PM.",
-    "The recycling program has been expanded. New bins are in the kitchen area.",
-    "Reminder: Submit your PTO requests for December by the end of this month.",
-    # --- Casual / Social ---
-    "Who's interested in joining the company softball team this season? Sign up by Friday.",
-    "The coffee machine on the 4th floor is fixed! Back to our regular brew.",
-    "Photos from the holiday party have been uploaded to the shared album. Great memories!",
-    "Does anyone have recommendations for a good Italian restaurant near the office?",
-    "Lost and found: A blue umbrella was left in the lobby. Claim it at reception.",
-    "The book club meets next Thursday. We're reading 'Atomic Habits' by James Clear.",
-    # --- Vendor / External ---
-    "Thank you for attending our webinar. Here are the slides as promised.",
-    "Your annual support contract has been renewed. No action required on your end.",
-    "We've published our monthly product newsletter. Check out the new features.",
-    "Meeting confirmed for Tuesday at 3 PM. Looking forward to discussing the partnership.",
-    "The workshop materials are available on our portal. Access credentials unchanged.",
-    "Thanks for your order. Estimated delivery is next Wednesday. Tracking link attached.",
-    "Your subscription renewal has been processed. Receipt attached for your records.",
-    "Invoice #3847 has been paid. Thank you for the prompt processing.",
-    "The quarterly business review presentation is attached. See you Thursday.",
-    "Conference registration is confirmed. Hotel block info will follow next week.",
-]
+NAME = "phishing"
+SCHEMA_VERSION = "2"
+BUNDLE = "bundle.joblib"
+PHISHING_THRESHOLD, SUSPICIOUS_THRESHOLD = 0.7, 0.4
+
+URL_RE = re.compile(r"(?:https?://|www\.)[^\s<>\"')\]]+", re.I)
+HREF_RE = re.compile(r'<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.I | re.S)
+IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+EMAIL_RE = re.compile(r"[\w.+-]+@([\w-]+(?:\.[\w-]+)+)")
+
+RISKY_TLDS = {"top", "xyz", "click", "tk", "ml", "ga", "cf", "gq", "work", "zip", "mov", "support",
+              "loan", "country", "kim", "men", "party", "review", "stream", "science"}
+SHORTENERS = {"bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "rebrand.ly",
+              "cutt.ly", "tiny.cc", "shorturl.at"}
+BRANDS = {"paypal": {"paypal.com"}, "microsoft": {"microsoft.com", "office.com", "live.com", "outlook.com", "microsoftonline.com"},
+          "google": {"google.com", "gmail.com", "googleapis.com"}, "apple": {"apple.com", "icloud.com"},
+          "amazon": {"amazon.com", "amazon.in", "amazon.co.uk"}, "netflix": {"netflix.com"},
+          "facebook": {"facebook.com", "fb.com"}, "dhl": {"dhl.com"}, "fedex": {"fedex.com"},
+          "docusign": {"docusign.com", "docusign.net"}, "dropbox": {"dropbox.com"},
+          "linkedin": {"linkedin.com"}, "bankofamerica": {"bankofamerica.com"}, "wellsfargo": {"wellsfargo.com"},
+          "chase": {"chase.com"}, "coinbase": {"coinbase.com"}}
+TWO_LEVEL = {"co.uk", "com.au", "co.in", "co.jp", "com.br", "co.nz", "co.za", "com.mx"}
+_LEET = str.maketrans({"0": "o", "1": "l", "3": "e", "5": "s", "4": "a", "@": "a", "$": "s"})
 
 
-def extract_features(text: str) -> dict:
-    text_lower = text.lower()
-    urgency = ["urgent", "immediately", "asap", "right now", "within 24 hours",
-               "action required", "act now", "expiring", "deadline", "hurry"]
-    financial = ["wire transfer", "payment", "invoice", "bank account", "purchase",
-                 "gift card", "transfer", "reimbursement", "funds", "balance"]
-    authority = ["ceo", "cfo", "director", "hr department", "it department",
-                 "security", "board", "management", "confidential", "personally"]
-    threat = ["compromised", "suspended", "deactivated", "locked", "unauthorized",
-              "penalty", "lose access", "suspicious", "alert", "warning"]
+def registered_domain(host: str) -> str:
+    """Approximate eTLD+1 (no public-suffix list: handles the common two-level suffixes)."""
+    labels = host.lower().strip(".").split(".")
+    if len(labels) >= 3 and ".".join(labels[-2:]) in TWO_LEVEL:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:]) if len(labels) >= 2 else host.lower()
+
+
+def _edit_distance(a: str, b: str) -> int:
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _brand_flag(host: str) -> str | None:
+    reg = registered_domain(host)
+    label = reg.split(".")[0].translate(_LEET)
+    if any(reg in official for official in BRANDS.values()):
+        return None
+    for brand in BRANDS:
+        if brand in label:
+            return "brand_in_domain"
+        if len(label) >= 5 and _edit_distance(label, brand) <= 1:
+            return "lookalike_domain"
+    subs = host.lower().translate(_LEET)
+    if any(f"{b}." in subs.replace(registered_domain(host), "") for b in BRANDS):
+        return "brand_in_subdomain"
+    return None
+
+
+URL_FLAG_WEIGHTS = {"ip_host": 0.4, "punycode": 0.3, "risky_tld": 0.25, "shortener": 0.2, "at_symbol": 0.3,
+                    "lookalike_domain": 0.45, "brand_in_domain": 0.4, "brand_in_subdomain": 0.3,
+                    "plain_http": 0.1, "many_subdomains": 0.15, "link_text_mismatch": 0.35}
+
+
+def extract_urls(text: str) -> list[dict]:
+    """URLs from plain text and HTML anchors; anchors record the visible link text."""
+    found: dict[str, str | None] = {}
+    for href, label in HREF_RE.findall(text or ""):
+        found.setdefault(unescape(href).strip(), re.sub(r"<[^>]+>", "", label).strip())
+    for u in URL_RE.findall(text or ""):
+        found.setdefault(u.rstrip(".,;:"), None)
+    return [{"url": u, "text": t} for u, t in found.items()]
+
+
+def analyze_url(url: str, link_text: str | None = None) -> dict:
+    parsed = urlparse(url if "://" in url else f"//{url}")
+    host = (parsed.hostname or "").lower()
+    flags: list[str] = []
+    try:
+        ipaddress.ip_address(host)
+        flags.append("ip_host")
+    except ValueError:
+        pass
+    if host:
+        if "xn--" in host:
+            flags.append("punycode")
+        if host.rsplit(".", 1)[-1] in RISKY_TLDS:
+            flags.append("risky_tld")
+        if registered_domain(host) in SHORTENERS:
+            flags.append("shortener")
+        if len(host.split(".")) >= 5:
+            flags.append("many_subdomains")
+        if not flags or "ip_host" not in flags:
+            b = _brand_flag(host)
+            if b:
+                flags.append(b)
+    if "@" in (parsed.netloc or ""):
+        flags.append("at_symbol")
+    if parsed.scheme == "http":
+        flags.append("plain_http")
+    if link_text and re.search(r"[\w-]+\.[a-z]{2,}", link_text, re.I):
+        shown = urlparse(link_text if "://" in link_text else f"//{link_text.split()[0]}").hostname
+        if shown and host and registered_domain(shown) != registered_domain(host):
+            flags.append("link_text_mismatch")
+    score = min(1.0, sum(URL_FLAG_WEIGHTS[f] for f in flags))
+    return {"url": url, "domain": host, "flags": flags, "score": round(score, 2)}
+
+
+def analyze_headers(headers: dict, sender: str | None, reply_to: str | None) -> list[dict]:
+    out = []
+    s_dom = (EMAIL_RE.search(sender or "") or [None, None])[1]
+    r_dom = (EMAIL_RE.search(reply_to or "") or [None, None])[1]
+    if s_dom and r_dom and registered_domain(s_dom) != registered_domain(r_dom):
+        out.append({"name": "reply_to_mismatch", "weight": 0.25,
+                    "detail": f"From domain {s_dom} differs from Reply-To domain {r_dom}"})
+    auth = " ".join(str(v) for k, v in (headers or {}).items() if k.lower() in ("authentication-results", "received-spf"))
+    if re.search(r"\b(spf|dkim|dmarc)=(fail|softfail|none)\b", auth, re.I) or re.search(r"\bfail\b", auth, re.I):
+        out.append({"name": "authentication_failed", "weight": 0.3, "detail": "SPF/DKIM/DMARC did not pass"})
+    display = re.match(r'\s*"?([^"<]+?)"?\s*<', sender or "")
+    if display and s_dom:
+        name = display.group(1).lower().translate(_LEET).replace(" ", "")
+        for brand, official in BRANDS.items():
+            if brand in name and registered_domain(s_dom) not in official:
+                out.append({"name": "display_name_impersonation", "weight": 0.3,
+                            "detail": f"Display name mentions {brand} but sender domain is {s_dom}"})
+                break
+    return out
+
+
+# ─── text model ───
+def _pipeline() -> "make_pipeline":
+    return make_pipeline(TfidfVectorizer(max_features=800, stop_words="english", ngram_range=(1, 2), sublinear_tf=True),
+                         LogisticRegression(max_iter=1000, C=2.0, random_state=42))
+
+
+def train_model(extra: list[tuple[str, int]] | None = None) -> dict:
+    texts = PHISHING_EMAILS + LEGITIMATE_EMAILS + [t for t, _ in (extra or [])]
+    y = np.array([1] * len(PHISHING_EMAILS) + [0] * len(LEGITIMATE_EMAILS) + [lbl for _, lbl in (extra or [])])
+    pred = cross_val_predict(_pipeline(), texts, y, cv=StratifiedKFold(5, shuffle=True, random_state=42))
+    evaluation = {"kind": "5fold_cross_validation", "n_samples": int(len(y)),
+                  "accuracy": round(accuracy_score(y, pred), 4), "precision": round(precision_score(y, pred), 4),
+                  "recall": round(recall_score(y, pred), 4), "f1": round(f1_score(y, pred), 4),
+                  "note": "Small, hand-written, template-like corpus; scores are optimistic and not a real-world estimate."}
+    pipe = _pipeline().fit(texts, y)
+    common.save_joblib(NAME, BUNDLE, pipe)
+    meta = common.write_meta(NAME, {
+        "name": NAME, "schema_version": SCHEMA_VERSION, "algorithm": "TfidfVectorizer + LogisticRegression",
+        "features": "tf-idf unigrams+bigrams", "training_data": {
+            "source": "hand_written_corpus", "n_samples": int(len(y)), "n_phishing": int(y.sum()), "real_data": False},
+        "evaluation": evaluation,
+        "limitations": ["Tiny corpus; text model alone is weak. Indicator checks carry half the score.",
+                        "No public-suffix list: registered-domain extraction is approximate.",
+                        "Does not fetch URLs or check live reputation (that is threat-intel enrichment)."]}, [BUNDLE])
+    _cache.clear()
+    return meta
+
+
+_cache: dict = {}
+_lock = threading.Lock()
+
+
+def _load():
+    with _lock:
+        if "pipe" not in _cache:
+            if common.read_meta(NAME) is None:
+                log.warning("no phishing model found; training from the bundled corpus")
+                train_model()
+            _cache.update(pipe=common.load_joblib(NAME, BUNDLE), meta=common.read_meta(NAME))
+        return _cache["pipe"], _cache["meta"]
+
+
+def model_info() -> dict:
+    return common.read_meta(NAME) or {"name": NAME, "status": "not_trained"}
+
+
+def _top_terms(pipe, text: str, k: int = 6) -> list[dict]:
+    vec, clf = pipe.steps[0][1], pipe.steps[1][1]
+    row = vec.transform([text])
+    names = vec.get_feature_names_out()
+    contrib = row.multiply(clf.coef_[0]).tocoo()
+    items = sorted(((names[c], float(v)) for c, v in zip(contrib.col, contrib.data)), key=lambda t: -abs(t[1]))[:k]
+    return [{"term": t, "contribution": round(v, 3)} for t, v in items]
+
+
+def analyze_email(email: dict | str) -> dict:
+    """`email`: raw text/body string, or a dict with subject/from/reply_to/body/headers."""
+    if isinstance(email, str):
+        email = {"body": email}
+    body = str(email.get("body") or email.get("text") or "")
+    subject = str(email.get("subject") or "")
+    text = f"{subject}\n{body}".strip()
+    evidence = hashlib.sha256(json.dumps(email, sort_keys=True, default=str).encode()).hexdigest()
+    pipe, meta = _load()
+    text_p = float(pipe.predict_proba([re.sub(r"<[^>]+>", " ", text)])[0, 1]) if text else 0.0
+
+    urls = [analyze_url(u["url"], u["text"]) for u in extract_urls(f"{subject}\n{body}")]
+    indicators = [{"name": f"url:{f}", "weight": URL_FLAG_WEIGHTS[f], "detail": u["url"]}
+                  for u in urls for f in u["flags"] if f != "plain_http" or len(u["flags"]) > 1]
+    header_ind = analyze_headers(email.get("headers") or {}, email.get("from"), email.get("reply_to"))
+    url_score = 0.0
+    if urls:
+        ranked = sorted((u["score"] for u in urls), reverse=True)
+        url_score = min(1.0, ranked[0] + 0.1 * sum(1 for s in ranked[1:] if s >= 0.3))
+    indicator_score = min(1.0, url_score + sum(h["weight"] for h in header_ind))
+    score = 0.5 * text_p + 0.5 * indicator_score
+
+    domains = sorted({u["domain"] for u in urls if u["domain"]})
+    iocs = [{"type": "url", "value": u["url"]} for u in urls] + [{"type": "domain", "value": d} for d in domains]
+    for ip in set(IP_RE.findall(body)):
+        try:
+            if ipaddress.ip_address(ip).is_global:
+                iocs.append({"type": "ip", "value": ip})
+        except ValueError:
+            pass
+    verdict = "phishing" if score >= PHISHING_THRESHOLD else "suspicious" if score >= SUSPICIOUS_THRESHOLD else "legitimate"
+    if verdict == "legitimate" and text_p >= 0.7:
+        # BEC-style mail has no links, so indicators stay at 0 and halve the score; a strong
+        # text-only signal still deserves an analyst's look.
+        verdict = "suspicious"
+        indicators.append({"name": "text_only_signal", "weight": 0.0,
+                           "detail": f"Text model probability {text_p:.0%} with no URL/header indicators"})
     return {
-        "urgency_count": sum(1 for w in urgency if w in text_lower),
-        "financial_count": sum(1 for w in financial if w in text_lower),
-        "authority_count": sum(1 for w in authority if w in text_lower),
-        "threat_count": sum(1 for w in threat if w in text_lower),
-        "has_link": 1 if re.search(r'(click|link|download|login|verify)', text_lower) else 0,
-        "exclamation_marks": text.count("!"),
-        "caps_ratio": sum(1 for c in text if c.isupper()) / max(len(text), 1),
-        "text_length": len(text),
-    }
-
-
-def train_model():
-    print("[*] Training NLP Phishing Parser...")
-    emails = PHISHING_EMAILS + LEGITIMATE_EMAILS
-    labels = [1] * len(PHISHING_EMAILS) + [0] * len(LEGITIMATE_EMAILS)
-    vectorizer = TfidfVectorizer(max_features=500, stop_words='english', ngram_range=(1, 2))
-    tfidf_matrix = vectorizer.fit_transform(emails)
-    handcrafted = pd.DataFrame([extract_features(e) for e in emails])
-    X = np.hstack([tfidf_matrix.toarray(), handcrafted.values])
-    y = np.array(labels)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = LogisticRegression(max_iter=1000, random_state=42)
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-    print("\n[+] === Evaluation ===")
-    print(classification_report(y_test, y_pred, target_names=["Legitimate", "Phishing"]))
-    with open(MODEL_PATH, 'wb') as f:
-        pickle.dump(model, f)
-    with open(VECTORIZER_PATH, 'wb') as f:
-        pickle.dump(vectorizer, f)
-    print(f"[+] Model saved to {MODEL_PATH}")
-
-
-def analyze_email(email_text: str) -> dict:
-    if not os.path.exists(MODEL_PATH):
-        train_model()
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
-    with open(VECTORIZER_PATH, 'rb') as f:
-        vectorizer = pickle.load(f)
-    tfidf = vectorizer.transform([email_text])
-    handcrafted = pd.DataFrame([extract_features(email_text)])
-    X = np.hstack([tfidf.toarray(), handcrafted.values])
-    proba = model.predict_proba(X)[0]
-    score = round(float(proba[1]) * 100, 2)
-    feat = extract_features(email_text)
-
-    if score > 70:
-        if feat["financial_count"] > 0 and feat["authority_count"] > 0:
-            threat_type = "Business Email Compromise (BEC)"
-        elif feat["has_link"] and feat["threat_count"] > 0:
-            threat_type = "Credential Phishing"
-        else:
-            threat_type = "Generic Phishing"
-    else:
-        threat_type = "Legitimate Email"
-
-    if score >= 80:
-        action = "QUARANTINE — Block email and force password reset."
-    elif score >= 50:
-        action = "FLAG — Forward to SOC analyst for manual review."
-    else:
-        action = "ALLOW — Email appears legitimate."
-
-    return {
-        "phishing_score": score, "threat_type": threat_type, "action": action,
-        "indicators": {
-            "urgency_signals": feat["urgency_count"],
-            "financial_intent": feat["financial_count"],
-            "authority_impersonation": feat["authority_count"],
-            "threat_language": feat["threat_count"],
-            "contains_action_link": bool(feat["has_link"]),
-        }
+        "phishing_score": round(score * 100, 1), "verdict": verdict, "text_score": round(text_p * 100, 1),
+        "indicator_score": round(indicator_score * 100, 1),
+        "indicators": indicators + header_ind, "urls": urls, "domains": domains, "iocs": iocs,
+        "top_terms": _top_terms(pipe, text) if text else [],
+        "threat_type": ("Phishing (links)" if verdict != "legitimate" and urls else
+                        "Phishing / BEC (text only)" if verdict != "legitimate" else "Legitimate email"),
+        "action": {"phishing": "Quarantine and open an incident", "suspicious": "Flag for analyst review",
+                   "legitimate": "No action"}[verdict],
+        "model_version": meta["version"], "evidence_sha256": evidence,
+        "trained_on": meta["training_data"]["source"],
     }
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--train":
-        train_model()
+        print(json.dumps(train_model()["evaluation"], indent=2))
     elif len(sys.argv) > 1 and sys.argv[1] == "--test":
-        result = analyze_email("URGENT: The CEO requests an immediate wire transfer of $25,000. Handle personally.")
-        print(json.dumps(result, indent=2))
+        print(json.dumps(analyze_email({"subject": "Verify now", "from": "PayPal <x@paypa1-secure.top>",
+                                        "body": "URGENT verify at http://paypa1-secure.top/login"}), indent=2)[:1500])
     else:
-        print("Usage: python nlp_phishing_parser.py --train | --test")
+        print("Usage: python -m ai.phishing.nlp_phishing_parser --train | --test")

@@ -1,0 +1,25 @@
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = ["dashboard/frontend", "models", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP", "S"]
+ignore = [
+    "E501",   # long lines: left to review, not the linter
+    "S101",   # assert is fine in tests
+    "S311",   # random is not used for security here
+    "B008",   # FastAPI Depends() in defaults is the framework idiom
+    "UP007", "UP006", "UP035", "UP037",
+    "UP042",  # (str, Enum) kept on purpose: str() of a StrEnum differs and we always use .value
+    "B905",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106", "S108", "S603", "E741"]
+"soar/api/auth.py" = ["S105"]        # "password": "reset" is an audit label, not a credential
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning"]
+addopts = "-q"

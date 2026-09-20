@@ -1,198 +1,71 @@
-#!/usr/bin/env python3
-"""
-Module 3.7: Self-Healing Playbook Optimizer
-=============================================
-Tracks historical MTTR per responder action and uses statistical
-analysis to identify the most effective response strategies.
+"""Playbook effectiveness report computed ONLY from stored executions, steps and approvals.
 
-Generates optimization reports recommending which responder
-actions to prioritize for each incident type.
+There is no sample or synthetic history. With few executions the report says so instead of drawing
+conclusions: recommendations require at least MIN_SAMPLES observations of the thing they describe.
 """
+from __future__ import annotations
 
-import json
-import os
-import sys
-from datetime import datetime, timedelta
 from collections import defaultdict
 
-import numpy as np
-import pandas as pd
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from soar.models import Approval, ExecutionStep, PlaybookExecution
+
+MIN_SAMPLES = 10
 
 
-HISTORY_PATH = os.path.join(os.path.dirname(__file__), "response_history.json")
+def _avg(xs: list[float]) -> float | None:
+    return round(sum(xs) / len(xs), 2) if xs else None
 
 
-def generate_sample_history() -> list:
-    """Generate sample historical incident response data."""
-    np.random.seed(42)
-    records = []
-    incident_types = ["brute_force", "malware", "ransomware", "phishing", "data_exfiltration"]
-    actions = ["block_ip", "isolate_host", "kill_process", "revoke_token", "quarantine_file"]
+def playbook_report(db: Session) -> dict:
+    execs = db.scalars(select(PlaybookExecution)).all()
+    steps = db.scalars(select(ExecutionStep)).all()
+    approvals = db.scalars(select(Approval)).all()
 
-    base_time = datetime(2026, 1, 1)
+    per_pb: dict[str, dict] = defaultdict(lambda: {"executions": 0, "by_status": defaultdict(int), "durations": []})
+    for x in execs:
+        d = per_pb[x.playbook_name]
+        d["executions"] += 1
+        d["by_status"][x.status] += 1
+        if x.status == "completed" and x.started_at and x.finished_at:
+            d["durations"].append((x.finished_at - x.started_at).total_seconds())
 
-    for i in range(200):
-        incident = np.random.choice(incident_types)
-        action = np.random.choice(actions)
+    per_action: dict[str, dict] = defaultdict(lambda: defaultdict(int))
+    for s in steps:
+        a = per_action[s.action]
+        a["runs"] += 1
+        a[s.status] += 1
+        if s.verified is True:
+            a["verified"] += 1
+        elif s.verified is False:
+            a["verification_failed"] += 1
 
-        # Simulate realistic MTTR based on action type
-        if action == "block_ip":
-            mttr = np.random.normal(12, 3) if incident in ["brute_force"] else np.random.normal(45, 15)
-            success = np.random.choice([True, True, True, False]) if incident == "brute_force" else np.random.choice([True, False])
-        elif action == "isolate_host":
-            mttr = np.random.normal(8, 2)
-            success = np.random.choice([True, True, True, True, False])  # 80% success
-        elif action == "kill_process":
-            mttr = np.random.normal(5, 1)
-            success = True if incident in ["malware"] else np.random.choice([True, False, False])
-        elif action == "revoke_token":
-            mttr = np.random.normal(3, 1)
-            success = True if incident == "phishing" else np.random.choice([True, False])
-        elif action == "quarantine_file":
-            mttr = np.random.normal(15, 5)
-            success = True if incident in ["malware", "ransomware"] else np.random.choice([True, False])
-        else:
-            mttr = np.random.normal(30, 10)
-            success = np.random.choice([True, False])
+    waits = [(a.decided_at - a.requested_at).total_seconds() for a in approvals if a.decided_at]
+    decided = [a for a in approvals if a.status in ("approved", "rejected")]
 
-        records.append({
-            "incident_id": f"IR-2026-{i+1:04d}",
-            "timestamp": (base_time + timedelta(hours=i * 4)).isoformat(),
-            "incident_type": str(incident),
-            "action_taken": str(action),
-            "mttr_seconds": float(max(1, round(mttr, 2))),
-            "success": bool(success),
-            "agent_id": f"00{int(np.random.randint(1, 5))}",
-        })
+    recommendations = []
+    for action, a in per_action.items():
+        if a["runs"] >= MIN_SAMPLES:
+            if a["failed"] / a["runs"] > 0.3:
+                recommendations.append(f"{action}: {a['failed']}/{a['runs']} runs failed; check its connector/credentials.")
+            if a["skipped"] / a["runs"] > 0.5:
+                recommendations.append(f"{action}: skipped in {a['skipped']}/{a['runs']} runs (no data or no connector configured).")
+    if len(decided) >= MIN_SAMPLES and sum(a.status == "rejected" for a in decided) / len(decided) > 0.5:
+        recommendations.append("Over half of approvals are rejected: consider tightening playbook triggers or conditions.")
+    if not recommendations and len(execs) < MIN_SAMPLES:
+        recommendations.append(f"Not enough executions yet ({len(execs)}/{MIN_SAMPLES}) for recommendations.")
 
-    return records
-
-
-def load_history() -> list:
-    """Load response history from disk or generate sample data."""
-    if os.path.exists(HISTORY_PATH):
-        with open(HISTORY_PATH, 'r') as f:
-            return json.load(f)
-    else:
-        history = generate_sample_history()
-        save_history(history)
-        return history
-
-
-def save_history(history: list):
-    """Save response history to disk."""
-    with open(HISTORY_PATH, 'w') as f:
-        json.dump(history, f, indent=2)
-
-
-def log_response(incident_type: str, action: str, mttr: float, success: bool, agent_id: str = "001"):
-    """Log a new response action for future learning."""
-    history = load_history()
-    history.append({
-        "incident_id": f"IR-{datetime.now().strftime('%Y')}-{len(history)+1:04d}",
-        "timestamp": datetime.now().isoformat(),
-        "incident_type": incident_type,
-        "action_taken": action,
-        "mttr_seconds": round(mttr, 2),
-        "success": success,
-        "agent_id": agent_id,
-    })
-    save_history(history)
-
-
-def generate_optimization_report() -> dict:
-    """
-    Analyze historical response data and generate an optimization report.
-    Returns recommendations for the best action per incident type.
-    """
-    history = load_history()
-    df = pd.DataFrame(history)
-
-    if df.empty:
-        return {"error": "No historical data available."}
-
-    report = {
-        "generated_at": datetime.now().isoformat(),
-        "total_incidents_analyzed": len(df),
-        "date_range": {
-            "from": df["timestamp"].min(),
-            "to": df["timestamp"].max(),
-        },
-        "overall_metrics": {
-            "avg_mttr_seconds": round(df["mttr_seconds"].mean(), 2),
-            "success_rate": f"{round(df['success'].mean() * 100, 1)}%",
-            "total_successful": int(df["success"].sum()),
-            "total_failed": int((~df["success"]).sum()),
-        },
-        "per_incident_analysis": {},
-        "recommendations": [],
+    return {
+        "totals": {"executions": len(execs), "steps": len(steps), "approvals": len(approvals)},
+        "enough_data": len(execs) >= MIN_SAMPLES,
+        "playbooks": {name: {"executions": d["executions"], "by_status": dict(d["by_status"]),
+                             "avg_completed_seconds": _avg(d["durations"])} for name, d in per_pb.items()},
+        "actions": {name: dict(a) for name, a in per_action.items()},
+        "approvals": {"decided": len(decided), "approved": sum(a.status == "approved" for a in decided),
+                      "rejected": sum(a.status == "rejected" for a in decided),
+                      "pending": sum(a.status == "pending" for a in approvals),
+                      "avg_seconds_to_decision": _avg(waits)},
+        "recommendations": recommendations,
     }
-
-    # Analyze each incident type
-    for incident_type in df["incident_type"].unique():
-        incident_df = df[df["incident_type"] == incident_type]
-
-        action_stats = []
-        for action in incident_df["action_taken"].unique():
-            action_df = incident_df[incident_df["action_taken"] == action]
-            success_df = action_df[action_df["success"] == True]
-
-            stats = {
-                "action": action,
-                "total_uses": len(action_df),
-                "success_count": len(success_df),
-                "success_rate": round(len(success_df) / len(action_df) * 100, 1) if len(action_df) > 0 else 0,
-                "avg_mttr": round(action_df["mttr_seconds"].mean(), 2),
-                "avg_mttr_successful": round(success_df["mttr_seconds"].mean(), 2) if len(success_df) > 0 else None,
-            }
-            # Effectiveness score = success_rate * (1 / avg_mttr) * 100
-            if stats["avg_mttr"] > 0:
-                stats["effectiveness_score"] = round(
-                    stats["success_rate"] * (1 / stats["avg_mttr"]) * 10, 2
-                )
-            else:
-                stats["effectiveness_score"] = 0
-            action_stats.append(stats)
-
-        # Sort by effectiveness
-        action_stats.sort(key=lambda x: x["effectiveness_score"], reverse=True)
-
-        report["per_incident_analysis"][incident_type] = {
-            "total_incidents": len(incident_df),
-            "action_breakdown": action_stats,
-        }
-
-        # Generate recommendation
-        if len(action_stats) >= 2:
-            best = action_stats[0]
-            worst = action_stats[-1]
-            report["recommendations"].append({
-                "incident_type": incident_type,
-                "best_action": best["action"],
-                "best_effectiveness": best["effectiveness_score"],
-                "best_success_rate": f"{best['success_rate']}%",
-                "best_avg_mttr": f"{best['avg_mttr']}s",
-                "worst_action": worst["action"],
-                "worst_effectiveness": worst["effectiveness_score"],
-                "suggestion": (
-                    f"For '{incident_type}' incidents, '{best['action']}' is "
-                    f"{round(best['effectiveness_score'] / max(worst['effectiveness_score'], 0.01), 1)}x "
-                    f"more effective than '{worst['action']}'. "
-                    f"Consider making '{best['action']}' the default responder."
-                ),
-            })
-
-    return report
-
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--report":
-        report = generate_optimization_report()
-        print(json.dumps(report, indent=2))
-    elif len(sys.argv) > 1 and sys.argv[1] == "--log":
-        log_response("brute_force", "block_ip", 11.5, True)
-        print("[+] Response logged successfully.")
-    else:
-        print("Usage:")
-        print("  python playbook_optimizer.py --report    # Generate optimization report")
-        print("  python playbook_optimizer.py --log       # Log a sample response")

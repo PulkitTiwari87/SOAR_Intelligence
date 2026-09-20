@@ -31,7 +31,6 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
-    confusion_matrix,
     f1_score,
     balanced_accuracy_score,
 )
@@ -276,7 +275,6 @@ def train_pipeline(df):
 
     X_bal = balanced_df.drop(columns=["label", "label_encoded"])
     y_bal = balanced_df["label"]
-    y_bal_enc = le.transform(y_bal)
 
     y_pred_bal = pipeline.predict(X_bal)
     y_pred_bal_labels = le.inverse_transform(y_pred_bal)
@@ -427,7 +425,7 @@ def main():
     df = merge_rare_classes(df, threshold=50)
 
     # Show class distribution
-    print(f"\n  Final class distribution:")
+    print("\n  Final class distribution:")
     for cls, count in df["label"].value_counts().items():
         print(f"    {cls}: {count}")
 
