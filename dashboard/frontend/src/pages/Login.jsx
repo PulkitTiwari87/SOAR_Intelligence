@@ -1,101 +1,45 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Shield, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Activity } from 'lucide-react';
+import { errMsg } from '../api';
+import { useAuth } from '../auth';
 
 export default function Login() {
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
+    setBusy(true);
     setError('');
-    setLoading(true);
     try {
-      await login(username, password);
-      navigate('/dashboard');
+      await login(username.trim(), password);
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Check your credentials.');
+      setError(errMsg(err));
+      setBusy(false);
     }
-    setLoading(false);
   };
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="logo-icon">
-          <Shield size={52} />
+      <form className="login-card" onSubmit={submit} aria-label="Sign in">
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <Activity size={36} color="var(--accent)" />
+          <h1 style={{ fontSize: 22, marginTop: 8 }}>SOAR Intelligence</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Sign in to continue</p>
         </div>
-        <h1>SOAR Dashboard</h1>
-        <p className="subtitle">Security Orchestration, Automation & Response</p>
-
-        {error && <div className="login-error">{error}</div>}
-
-        <form className="login-form" onSubmit={handleSubmit}>
-          <div className="input-group">
-            <label><User size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Username</label>
-            <input
-              className="input"
-              type="text"
-              placeholder="Enter your username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoFocus
-              required
-            />
-          </div>
-
-          <div className="input-group">
-            <label><Lock size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Password</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                className="input"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={{ paddingRight: '44px' }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  padding: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
-
-          <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? <><div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} /> Signing in...</> : 'Sign In'}
-          </button>
-        </form>
-
-        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          <p>Demo: <strong>admin</strong> / <strong>admin123</strong> (Analyst)</p>
-          <p>Demo: <strong>viewer</strong> / <strong>viewer123</strong> (User)</p>
-        </div>
-      </div>
+        {error && <div className="login-error" role="alert">{error}</div>}
+        <label htmlFor="u" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Username</label>
+        <input id="u" className="input" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} required maxLength={64} />
+        <label htmlFor="p" style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 12, display: 'block' }}>Password</label>
+        <input id="p" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required maxLength={256} />
+        <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 16, textAlign: 'center' }}>
+          Accounts are created by an administrator. See the README for creating the first one.
+        </p>
+      </form>
     </div>
   );
 }
