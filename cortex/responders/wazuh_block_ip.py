@@ -16,12 +16,14 @@ import os
 import requests
 import urllib3
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# Configuration — read from environment or use defaults
+# Configuration comes from the environment only; there are no credential defaults.
 WAZUH_API_URL = os.environ.get("WAZUH_API_URL", "https://wazuh.manager:55000")
-WAZUH_API_USER = os.environ.get("WAZUH_API_USER", "wazuh-wui")
-WAZUH_API_PASS = os.environ.get("WAZUH_API_PASS", "MyS3cr37P450r.*-")
+WAZUH_API_USER = os.environ.get("WAZUH_API_USER", "")
+WAZUH_API_PASS = os.environ.get("WAZUH_API_PASS", "")
+# Set WAZUH_VERIFY_TLS=false only for a lab manager with a self-signed certificate.
+VERIFY_TLS = os.environ.get("WAZUH_VERIFY_TLS", "true").lower() != "false"
+if not VERIFY_TLS:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,7 +38,7 @@ def get_auth_token() -> str:
         response = requests.post(
             url,
             auth=(WAZUH_API_USER, WAZUH_API_PASS),
-            verify=False,
+            verify=VERIFY_TLS,
             timeout=10
         )
         if response.status_code == 200:
@@ -55,7 +57,7 @@ def find_agent_by_ip(token: str, ip: str) -> str:
     url = f"{WAZUH_API_URL}/agents"
     headers = {"Authorization": f"Bearer {token}"}
     try:
-        response = requests.get(url, headers=headers, verify=False, timeout=10)
+        response = requests.get(url, headers=headers, verify=VERIFY_TLS, timeout=10)
         if response.status_code == 200:
             agents = response.json().get("data", {}).get("affected_items", [])
             for agent in agents:
@@ -63,8 +65,8 @@ def find_agent_by_ip(token: str, ip: str) -> str:
                     return agent.get("id", "001")
     except Exception as e:
         logging.error(f"Agent lookup error: {e}")
-    # Default to agent 001 if lookup fails
-    return "001"
+    # Never guess: blocking on the wrong agent is worse than failing.
+    return ""
 
 
 def run_active_response(token: str, agent_id: str, command: str, arguments: list) -> dict:
@@ -84,7 +86,7 @@ def run_active_response(token: str, agent_id: str, command: str, arguments: list
 
     response = requests.put(
         url, headers=headers, params=params,
-        json=payload, verify=False, timeout=15
+        json=payload, verify=VERIFY_TLS, timeout=15
     )
     return response.json()
 
@@ -110,13 +112,19 @@ def main():
         logging.info(f"Blocking IP: {ip_to_block}")
 
         # Step 1: Authenticate
+        if not (WAZUH_API_USER and WAZUH_API_PASS):
+            print(json.dumps({"success": False, "message": "WAZUH_API_USER/WAZUH_API_PASS not configured"}))
+            sys.exit(1)
         token = get_auth_token()
         if not token:
             print(json.dumps({"success": False, "message": "Failed to authenticate with Wazuh API"}))
             sys.exit(1)
 
         # Step 2: Find target agent (or default to 001)
-        agent_id = find_agent_by_ip(token, ip_to_block)
+        agent_id = os.environ.get("WAZUH_AGENT_ID") or find_agent_by_ip(token, ip_to_block)
+        if not agent_id:
+            print(json.dumps({"success": False, "message": "No Wazuh agent found for target; set WAZUH_AGENT_ID"}))
+            sys.exit(1)
         logging.info(f"Target agent: {agent_id}")
 
         # Step 3: Trigger firewall-drop

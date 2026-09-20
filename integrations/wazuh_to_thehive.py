@@ -24,12 +24,15 @@ import logging
 import requests
 import urllib3
 
-# Suppress SSL warnings for internal services
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# TLS verification is on by default. Set THEHIVE_VERIFY_TLS=false only for a lab
+# TheHive with a self-signed certificate.
+VERIFY_TLS = os.environ.get('THEHIVE_VERIFY_TLS', 'true').lower() != 'false'
+if not VERIFY_TLS:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- Configuration ---
 THEHIVE_URL = os.environ.get('THEHIVE_URL', 'http://thehive:9000')
-THEHIVE_API_KEY = os.environ.get('THEHIVE_API_KEY', 'mZMfJp3OWSvn3+pITEpaalxdWSwynI3D')
+THEHIVE_API_KEY = os.environ.get('THEHIVE_API_KEY', '')
 ALERT_LEVEL_THRESHOLD = 7
 
 # Setup logging
@@ -110,6 +113,10 @@ def send_to_thehive(alert_data: dict) -> None:
         logging.info(f"Skipping alert (level {rule_level} < {ALERT_LEVEL_THRESHOLD})")
         return
 
+    if not THEHIVE_API_KEY:
+        logging.error("THEHIVE_API_KEY is not set; cannot forward alert")
+        return
+
     severity = map_severity(rule_level)
     observables = extract_observables(alert_data)
 
@@ -154,7 +161,7 @@ def send_to_thehive(alert_data: dict) -> None:
             f"{THEHIVE_URL}/api/v1/alert",  # TheHive 5.x uses /api/v1/
             headers=headers,
             json=hive_alert,
-            verify=False,
+            verify=VERIFY_TLS,
             timeout=30
         )
 
