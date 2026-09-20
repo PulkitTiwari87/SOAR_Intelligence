@@ -1,29 +1,13 @@
-# SOAR Frontend Dockerfile
-# Stage 1: Build
-FROM node:18-alpine AS build
-
+# SOAR UI: build with Node, serve with unprivileged nginx (non-root, port 8080).
+FROM node:22-alpine AS build
 WORKDIR /app
-
 COPY package*.json ./
-RUN npm install
-
+RUN npm ci
 COPY . .
-
-# Pass API URL during build if needed
-ARG VITE_API_URL=http://localhost:3000
-ENV VITE_API_URL=$VITE_API_URL
-
 RUN npm run build
 
-# Stage 2: Serve with Nginx
-FROM nginx:stable-alpine
-
-# Copy build output to nginx public folder
+FROM nginxinc/nginx-unprivileged:stable-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
-
-# Copy custom nginx config if you have one, or use default
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1
