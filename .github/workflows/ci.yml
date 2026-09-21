@@ -13,6 +13,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  secrets:
+    name: Secret scan (working tree)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Tree only, on purpose: git history still holds the credentials from the original commit
+      # (see docs/SECURITY_REMEDIATION.md), which a history scan would flag until that is resolved.
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --no-git --source /repo --redact --verbose
+
   backend:
     name: Backend (lint, tests, security)
     runs-on: ubuntu-latest
@@ -50,6 +60,7 @@ jobs:
           cache-dependency-path: dashboard/frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       - run: npm run build
       - run: npm audit --omit=dev
 
