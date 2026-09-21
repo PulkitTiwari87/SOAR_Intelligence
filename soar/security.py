@@ -1,10 +1,8 @@
-"""Password hashing, JWT session tokens and a small login rate limiter."""
+"""Password hashing and JWT session tokens. Login throttling lives in soar.api.auth."""
 from __future__ import annotations
 
 import hmac
-import time
 import uuid
-from collections import defaultdict, deque
 from datetime import datetime, timedelta, UTC
 
 import bcrypt
@@ -53,32 +51,3 @@ def api_key_matches(provided: str | None) -> bool:
     if not configured or not provided:
         return False
     return hmac.compare_digest(provided.encode(), configured.encode())
-
-
-class RateLimiter:
-    """Sliding-window limiter, per process. Enough for a single-worker deployment."""
-
-    def __init__(self) -> None:
-        self._hits: dict[str, deque[float]] = defaultdict(deque)
-
-    def _prune(self, key: str, window: float) -> deque[float]:
-        q = self._hits[key]
-        cutoff = time.monotonic() - window
-        while q and q[0] < cutoff:
-            q.popleft()
-        return q
-
-    def blocked(self, key: str, limit: int, window: float) -> bool:
-        return len(self._prune(key, window)) >= limit
-
-    def hit(self, key: str, window: float) -> None:
-        self._prune(key, window).append(time.monotonic())
-
-    def reset(self, key: str | None = None) -> None:
-        if key is None:
-            self._hits.clear()
-        else:
-            self._hits.pop(key, None)
-
-
-login_limiter = RateLimiter()

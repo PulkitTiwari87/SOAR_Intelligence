@@ -33,7 +33,6 @@ def fresh_db(tmp_path, monkeypatch):
     reset_settings()
     soar_db.reset_engine()
     Base.metadata.create_all(soar_db.get_engine())
-    security.login_limiter.reset()
     yield
     soar_db.reset_engine()
 

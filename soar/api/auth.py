@@ -1,8 +1,9 @@
 """Authentication, session and user administration endpoints."""
 from __future__ import annotations
 
+import math
 import re
-from datetime import datetime, UTC
+from datetime import datetime, timedelta, UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -14,7 +15,7 @@ from soar.api.deps import COOKIE_NAME, Principal, client_ip, current_user, requi
 from soar.config import get_settings
 from soar.db import get_db
 from soar.domain import Perm, Role
-from soar.models import RevokedToken, User
+from soar.models import AuditLog, RevokedToken, User, utcnow
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 users_router = APIRouter(prefix="/users", tags=["users"])
@@ -51,25 +52,46 @@ def user_json(u: User) -> dict:
             "created_at": u.created_at, "last_login": u.last_login}
 
 
+def _login_retry_after(db: Session, ip: str, username: str, limit: int, window: int) -> int:
+    """Seconds until this ip+username may try again, or 0 when not throttled.
+
+    Derived from the audit log, so every worker and container sharing the database sees the same
+    failures (no per-process state). A successful login by the same ip+username resets the count.
+    Concurrent requests can overshoot `limit` by a few attempts; that is acceptable for throttling.
+    """
+    who = (AuditLog.action == "login", func.lower(AuditLog.actor) == username.lower(),
+           AuditLog.ip_address == ip)
+    since = utcnow() - timedelta(seconds=window)
+    last_ok = db.scalar(select(func.max(AuditLog.timestamp)).where(*who, AuditLog.result == "success"))
+    if last_ok and last_ok > since:
+        since = last_ok
+    failures = db.scalars(select(AuditLog.timestamp).where(
+        *who, AuditLog.result == "failure", AuditLog.timestamp > since).order_by(AuditLog.timestamp)).all()
+    if len(failures) < limit:
+        return 0
+    # Blocked until enough of the oldest failures leave the window to drop below the limit.
+    unblock_at = failures[len(failures) - limit] + timedelta(seconds=window)
+    return max(1, math.ceil((unblock_at - utcnow()).total_seconds()))
+
+
 @router.post("/login")
 def login(body: LoginBody, request: Request, response: Response, db: Session = Depends(get_db)):
     s = get_settings()
     ip = client_ip(request) or "unknown"
-    key = f"{ip}|{body.username.lower()}"
-    if security.login_limiter.blocked(key, s.login_max_attempts, s.login_window_seconds):
+    retry_after = _login_retry_after(db, ip, body.username, s.login_max_attempts, s.login_window_seconds)
+    if retry_after:
         audit.record(db, actor=body.username, action="login", result="rate_limited", ip=ip)
         db.commit()
-        raise HTTPException(429, "Too many failed attempts. Try again later.")
+        raise HTTPException(429, "Too many failed attempts. Try again later.",
+                            headers={"Retry-After": str(retry_after)})
 
     user = db.scalar(select(User).where(User.username == body.username))
     ok = security.verify_password(body.password, user.password_hash if user else _DUMMY_HASH)
     if not (user and ok and user.is_active):
-        security.login_limiter.hit(key, s.login_window_seconds)
         audit.record(db, actor=body.username, action="login", result="failure", ip=ip)
         db.commit()
         raise HTTPException(401, "Invalid credentials")
 
-    security.login_limiter.reset(key)
     user.last_login = datetime.now(UTC)
     token, _, exp = security.create_token(user.id, user.role)
     audit.record(db, actor=user.username, actor_role=user.role, action="login",

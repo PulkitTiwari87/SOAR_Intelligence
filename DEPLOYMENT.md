@@ -42,7 +42,9 @@ Connect Wazuh to SOAR: copy `integrations/custom-soar` into the manager's `/var/
 
 * `SOAR_ENV=production` (compose default) disables `/api/docs` and demands a strong `JWT_SECRET`. Put a TLS-terminating
   reverse proxy in front and set `COOKIE_SECURE=true`.
-* Run **one** API worker (rate limiting and correlation are per process).
+* Login rate limiting is stored in the shared database, so it holds across workers and containers
+  (`LOGIN_MAX_ATTEMPTS`, `LOGIN_WINDOW_SECONDS`; a blocked login gets HTTP 429 with a `Retry-After` header).
+  Multi-worker operation of the rest of the pipeline has not been load-tested; the default is **one** API worker.
 * State: named volumes `soar-pg` (PostgreSQL), `soar-data` (evidence, reports, feeds, custom playbooks) and
   `soar-models` (models, seeded from the image, written by retraining). Back up with
   `docker compose exec postgres pg_dump -U soar soar > backup.sql` and archive the volumes.

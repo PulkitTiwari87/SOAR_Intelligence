@@ -67,7 +67,8 @@ double click cannot run a step twice. Steps that are not `pending` are never re-
 
 ## Deliberate non-goals
 
-* Redis is not used by the platform (only by MISP in the SIEM overlay). Login rate limiting is per process, so
-  run one API worker (the default).
+* Redis is not used by the platform (only by MISP in the SIEM overlay). Login throttling is derived from the
+  audit log in the shared database, so workers and containers see the same failure counts. Running more than
+  one API worker has not been load-tested beyond that; the default is one.
 * No message queue: ingestion is synchronous; the LLM commander is the only step that can be deferred.
 * No full asset discovery: assets come from you, `seed-demo` (dev only) or future Wazuh sync.

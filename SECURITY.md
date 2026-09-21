@@ -10,7 +10,8 @@ public issues.
 * **AuthN**: bcrypt-hashed passwords (≥ 10 chars, ≤ 72 bytes), JWT sessions in an `httpOnly`, `SameSite=Strict`
   cookie (`Secure` via `COOKIE_SECURE`) or as a bearer token for API clients; logout revokes the token (`revoked_tokens`);
   the role is read from the database on every request, so demotion is immediate. Login is rate limited per IP+username
-  (5 failures / 5 min, per process) and failures are indistinguishable for unknown users. No public registration:
+  (5 failures / 5 min by default, counted from the shared audit log so it holds across workers and containers;
+  `LOGIN_MAX_ATTEMPTS`, `LOGIN_WINDOW_SECONDS`; 429 with `Retry-After`) and failures are indistinguishable for unknown users. No public registration:
   users are created by an admin or the CLI.
 * **CSRF**: cookie-authenticated state-changing requests must carry `X-Requested-With`; CORS is an explicit allow-list.
 * **RBAC**: `ADMIN`, `SOC_ANALYST`, `INCIDENT_RESPONDER`, `VIEWER` (matrix in `soar/domain.py`); high-risk approvals need
@@ -54,7 +55,8 @@ a force-push (coordinate with collaborators) after rotating.
 
 ## Known limitations
 
-* Login rate limiting and the correlation window are per process; run a single API worker.
+* Concurrent failed logins can overshoot the limit by a few attempts (the count is read, not atomically reserved).
+  Multi-worker operation of the rest of the pipeline has not been load-tested; the default is a single API worker.
 * `block_ip` records intent in the SOAR blocklist; enforcement needs a consumer of `/api/blocklist.txt` or Wazuh
   active response. `isolate_host` / `disable_account` need a custom Wazuh command (`WAZUH_*_COMMAND`).
 * The SIEM overlay uses the vendors' default indexer admin account and is a lab stack.

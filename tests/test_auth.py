@@ -1,7 +1,13 @@
 """Authentication, RBAC, CSRF and audit behaviour."""
+from datetime import timedelta
+
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from soar.models import AuditLog, User
+from soar import audit
+from soar.config import get_settings
+from soar.main import create_app
+from soar.models import AuditLog, User, utcnow
 from tests.conftest import PASSWORD, make_user
 
 
@@ -34,6 +40,43 @@ def test_login_is_rate_limited_after_repeated_failures(client, db):
         assert _login(client, "alice", "wrong-password-123").status_code == 401
     # Even the correct password is refused while the window is exhausted.
     assert _login(client, "alice").status_code == 429
+
+
+def test_rate_limited_response_says_when_to_retry(client, db):
+    make_user(db, "alice", "VIEWER")
+    for _ in range(5):
+        _login(client, "alice", "wrong-password-123")
+    r = _login(client, "alice")
+    assert r.status_code == 429
+    assert 1 <= int(r.headers["retry-after"]) <= get_settings().login_window_seconds
+
+
+def test_rate_limit_is_shared_between_app_instances(db):
+    """Separate workers/containers share the database, so they must share one failure count."""
+    make_user(db, "alice", "VIEWER")
+    with TestClient(create_app()) as worker_a, TestClient(create_app()) as worker_b:
+        for c in (worker_a, worker_a, worker_a, worker_b, worker_b):
+            assert _login(c, "alice", "wrong-password-123").status_code == 401
+        assert _login(worker_a, "alice").status_code == 429
+        assert _login(worker_b, "alice").status_code == 429
+
+
+def test_successful_login_resets_the_failure_count(client, db):
+    make_user(db, "alice", "VIEWER")
+    for _ in range(4):
+        assert _login(client, "alice", "wrong-password-123").status_code == 401
+    assert _login(client, "alice").status_code == 200
+    for _ in range(4):  # would hit 429 if the earlier failures still counted
+        assert _login(client, "alice", "wrong-password-123").status_code == 401
+
+
+def test_failures_outside_the_window_or_from_other_ips_do_not_count(client, db):
+    make_user(db, "alice", "VIEWER")
+    stale = utcnow() - timedelta(seconds=get_settings().login_window_seconds + 60)
+    for ip, at in [("testclient", stale)] * 5 + [("10.9.9.9", utcnow())] * 5:
+        audit.record(db, actor="alice", action="login", result="failure", ip=ip).timestamp = at
+    db.commit()
+    assert _login(client, "alice").status_code == 200
 
 
 def test_protected_route_requires_authentication(client):
