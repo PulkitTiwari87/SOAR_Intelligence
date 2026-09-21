@@ -3,11 +3,10 @@
 # It lives in its own file because Compose interpolates every service in a file, even those in a
 # disabled profile, and these services need extra required secrets the core stack does not.
 # Lab-grade: uses the vendors' default indexer admin account. Harden with each vendor's tooling before
-# exposing beyond localhost. Not exercised by the automated tests.
+# exposing beyond localhost. Statically validated only (`docker compose config`); never started by the author.
+# See docs/SIEM_SETUP.md.
 
 services:
-  # Lab-grade: uses the vendors' default indexer admin account. Harden with each vendor's tooling
-  # before exposing beyond localhost. Not exercised by the automated tests.
   wazuh.manager:
     image: wazuh/wazuh-manager:4.9.0
     hostname: wazuh.manager
@@ -16,23 +15,32 @@ services:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 655360, hard: 655360 }
     ports: ["1514:1514", "1515:1515", "514:514/udp", "127.0.0.1:55000:55000"]
+    # Wazuh 4.x images install under /var/ossec and read these variable names (checked against the
+    # 4.7.2 image's init scripts; /var/wazuh-manager and WAZUH_INDEXER_HOSTS belong to Wazuh 5.x).
     environment:
-      WAZUH_INDEXER_HOSTS: wazuh.indexer:9200
+      INDEXER_URL: https://wazuh.indexer:9200
       INDEXER_USERNAME: admin
       INDEXER_PASSWORD: ${WAZUH_INDEXER_ADMIN_PASSWORD:?Set WAZUH_INDEXER_ADMIN_PASSWORD in .env}
+      FILEBEAT_SSL_VERIFICATION_MODE: full
+      SSL_CERTIFICATE_AUTHORITIES: /etc/ssl/root-ca.pem
+      SSL_CERTIFICATE: /etc/ssl/filebeat.pem
+      SSL_KEY: /etc/ssl/filebeat.key
       API_USERNAME: wazuh-wui
       API_PASSWORD: ${WAZUH_API_PASSWORD:?Set WAZUH_API_PASSWORD in .env}
     volumes:
-      - wazuh_api_configuration:/var/wazuh-manager/api/configuration
-      - wazuh_etc:/var/wazuh-manager/etc
-      - wazuh_logs:/var/wazuh-manager/logs
-      - wazuh_queue:/var/wazuh-manager/queue
-      - wazuh_var_multigroups:/var/wazuh-manager/var/multigroups
-      - wazuh_active_response:/var/wazuh-manager/active-response/bin
-      - ./wazuh-certificates/root-ca.pem:/var/wazuh-manager/etc/certs/root-ca.pem:ro
-      - ./wazuh-certificates/wazuh.manager.pem:/var/wazuh-manager/etc/certs/manager.pem:ro
-      - ./wazuh-certificates/wazuh.manager-key.pem:/var/wazuh-manager/etc/certs/manager-key.pem:ro
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - filebeat_etc:/etc/filebeat
+      - filebeat_var:/var/lib/filebeat
+      - ./wazuh-certificates/root-ca.pem:/etc/ssl/root-ca.pem:ro
+      - ./wazuh-certificates/wazuh.manager.pem:/etc/ssl/filebeat.pem:ro
+      - ./wazuh-certificates/wazuh.manager-key.pem:/etc/ssl/filebeat.key:ro
       - ./integrations:/var/ossec/integrations-src:ro
+    depends_on: [wazuh.indexer]
     networks: [soar-net]
 
   wazuh.indexer:
@@ -103,6 +111,12 @@ services:
       xpack.security.enabled: "false"
       ES_JAVA_OPTS: -Xms512m -Xmx512m
     volumes: [elasticsearch-data:/usr/share/elasticsearch/data]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
     networks: [soar-net]
 
   cassandra:
@@ -113,12 +127,19 @@ services:
       HEAP_NEWSIZE: 256M
       CASSANDRA_CLUSTER_NAME: TheHive
     volumes: [cassandra-data:/var/lib/cassandra]
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES' >/dev/null"]
+      interval: 20s
+      timeout: 15s
+      retries: 12
+      start_period: 60s
     networks: [soar-net]
 
   cortex:
     image: thehiveproject/cortex:3.1.7
     restart: unless-stopped
-    depends_on: [elasticsearch]
+    depends_on:
+      elasticsearch: { condition: service_healthy }
     environment:
       JAVA_OPTS: -Xms512m -Xmx512m
       search.index: cortex
@@ -130,7 +151,10 @@ services:
   thehive:
     image: strangebee/thehive:5.4.1
     restart: unless-stopped
-    depends_on: [cassandra, elasticsearch, cortex]
+    depends_on:
+      cassandra: { condition: service_healthy }
+      elasticsearch: { condition: service_healthy }
+      cortex: { condition: service_started }
     environment:
       JAVA_OPTS: -Xms1g -Xmx1g
     command:
@@ -155,17 +179,31 @@ services:
       MYSQL_PASSWORD: ${MISP_DB_PASSWORD:?Set MISP_DB_PASSWORD in .env}
       MYSQL_ROOT_PASSWORD: ${MISP_DB_PASSWORD}
     volumes: [misp-db-data:/var/lib/mysql]
+    healthcheck:
+      # $$ defers expansion to the container's shell so the password never lands in the compose model.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     networks: [soar-net]
 
   misp-redis:
     image: redis:6
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
     networks: [soar-net]
 
   misp:
     image: coolacid/misp-docker:core-latest
     restart: unless-stopped
-    depends_on: [misp-db, misp-redis]
+    depends_on:
+      misp-db: { condition: service_healthy }
+      misp-redis: { condition: service_healthy }
     environment:
       MYSQL_HOST: misp-db
       MYSQL_DATABASE: misp
@@ -186,6 +224,8 @@ volumes:
   wazuh_queue:
   wazuh_var_multigroups:
   wazuh_active_response:
+  filebeat_etc:
+  filebeat_var:
   wazuh-indexer-data:
   wazuh-dashboard-config:
   wazuh-dashboard-custom:
