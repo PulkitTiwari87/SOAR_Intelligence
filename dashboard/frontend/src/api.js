@@ -26,6 +26,6 @@ export function errMsg(e) {
   if (Array.isArray(d)) return d.map((x) => x.msg).join('; ');
   if (typeof d === 'string') return d;
   if (e?.response?.status === 429) return 'Too many attempts. Please wait and try again.';
-  if (!e?.response) return 'Cannot reach the API. Is the backend running?';
+  if (!e?.response) return e?.isAxiosError ? 'Cannot reach the API. Is the backend running?' : e?.message || 'Request failed';
   return e.message || 'Request failed';
 }

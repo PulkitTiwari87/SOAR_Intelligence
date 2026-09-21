@@ -15,9 +15,11 @@ export function AuthProvider({ children }) {
       const { data } = await api.get('/auth/me');
       setUser(data.user);
       setPermissions(data.permissions);
+      return true;
     } catch {
       setUser(null);
       setPermissions([]);
+      return false;
     }
   }, []);
 
@@ -37,7 +39,11 @@ export function AuthProvider({ children }) {
     can: (perm) => permissions.includes(perm),
     login: async (username, password) => {
       await api.post('/auth/login', { username, password });
-      await load();
+      // The password was accepted, but without a usable session cookie (e.g. COOKIE_SECURE=true over
+      // plain HTTP) the follow-up request is anonymous. Say so instead of leaving the form stuck.
+      if (!(await load())) {
+        throw new Error('Signed in, but the browser did not keep the session. If the UI is served over plain HTTP, set COOKIE_SECURE=false.');
+      }
     },
     logout: async () => {
       try { await api.post('/auth/logout'); } finally { setUser(null); setPermissions([]); }
