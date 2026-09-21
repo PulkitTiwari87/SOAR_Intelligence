@@ -707,6 +707,7 @@ th { color: var(--text-muted); font-size: 12px; font-weight: 600; text-transform
   .sidebar { transform: translateX(-100%); transition: transform var(--transition-normal); }
   .sidebar.open { transform: translateX(0); }
   .topbar { left: 0; padding: 0 12px; }
+  .main-content { margin-left: 0; }
   .menu-btn { display: inline-flex; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .page-container { padding: 16px; }
