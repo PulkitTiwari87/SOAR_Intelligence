@@ -68,15 +68,20 @@ Details: [DEVELOPMENT.md](DEVELOPMENT.md) · [DEPLOYMENT.md](DEPLOYMENT.md)
   response must be configured) for traffic to actually be blocked. `isolate_host` and `disable_account` need a custom
   Wazuh command and are reported as *skipped* when absent; nothing pretends to succeed.
 * The LLM path is unit-tested against mock transports; it has not been run against a live provider here (no key).
-* The optional SIEM overlay and the Docker images were not run in the author's environment (Docker daemon unavailable);
-  CI builds the images and validates the compose files.
-* **Secrets from the original import remain in git history and must be rotated** (see [SECURITY.md](SECURITY.md)).
+* **Verified** (see [docs/VERIFICATION.md](docs/VERIFICATION.md)): backend and frontend tests, lint, the frontend build,
+  and the core Docker stack (image build, `docker compose up`, health/readiness, dashboard, auth enforced).
+  **Statically validated only:** the optional SIEM overlay (`docker compose config`); it has never been started.
+  **Not verified:** the SIEM overlay at runtime, a live LLM provider, and the CI workflow on GitHub.
+* **Secrets from the original import remain in git history and must be rotated**
+  (see [docs/SECURITY_REMEDIATION.md](docs/SECURITY_REMEDIATION.md)); nothing has been rotated by this repository.
 
 ## Documentation
 
 [ARCHITECTURE](ARCHITECTURE.md) · [API](API.md) · [AI models](AI_MODELS.md) · [Playbooks](PLAYBOOKS.md) ·
 [MITRE mapping](MITRE_MAPPING.md) · [Security](SECURITY.md) · [Threat model](THREAT_MODEL.md) ·
-[Development](DEVELOPMENT.md) · [Deployment](DEPLOYMENT.md) · [Changelog](CHANGELOG.md)
+[Development](DEVELOPMENT.md) · [Deployment](DEPLOYMENT.md) · [Changelog](CHANGELOG.md) ·
+[SIEM setup](docs/SIEM_SETUP.md) · [Verification](docs/VERIFICATION.md) ·
+[Security remediation](docs/SECURITY_REMEDIATION.md)
 
 Originally developed as an academic project (UPES, Cybersecurity & Digital Forensics). Repository layout:
 `soar/` API and pipeline · `ai/` models · `dashboard/frontend/` UI · `integrations/`, `cortex/`, `configs/wazuh/`,
