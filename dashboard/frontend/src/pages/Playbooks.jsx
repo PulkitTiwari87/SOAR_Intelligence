@@ -1,73 +1,281 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { GitBranch } from 'lucide-react';
 import { api } from '../api';
-import { Async, fmtDate, Header, StatusBadge, Tabs, useLoad } from '../ui';
+import { Async, fmtDate, StatusBadge, useLoad } from '../ui';
 
-const RISK = { low: 'badge-resolved', medium: 'badge-medium', high: 'badge-critical' };
+const RISK_CLASS = { low: 'step-risk-low', medium: 'step-risk-med', high: 'step-risk-high' };
+const RISK_LABEL = { low: 'LOW', medium: 'MED', high: 'HIGH' };
 
+function RiskBadge({ risk }) {
+  return <span className={`step-risk ${RISK_CLASS[risk] || 'step-risk-low'}`}>{RISK_LABEL[risk] || (risk || '').toUpperCase()}</span>;
+}
+
+function EnabledBadge({ enabled }) {
+  return <span className={`pb-state-badge ${enabled ? 'enabled' : 'disabled'}`}>{enabled ? 'ENABLED' : 'DISABLED'}</span>;
+}
+
+/* Horizontal execution chain */
+function ExecChain({ steps }) {
+  return (
+    <div className="pb-chain">
+      {steps.map((s, i) => {
+        const gated = s.approval === 'required';
+        return (
+          <span key={s.id} className="pb-chain-item">
+            {i > 0 && <span className="pb-chain-plus">+</span>}
+            <span className={`pb-step ${gated ? 'gated' : ''}`} title={s.params ? JSON.stringify(s.params) : undefined}>
+              <span className="pb-step-num">{i + 1}.</span>
+              <strong className="pb-step-action">{s.action}</strong>
+              <RiskBadge risk={s.risk} />
+              {gated && <span className="pb-gate-badge"><GitBranch size={9} /> awaits approval</span>}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlaybookCard({ p }) {
+  return (
+    <div className="pb-card">
+      {/* Row 1: Title + Version + State */}
+      <div className="pb-card-header">
+        <div className="pb-card-header-left">
+          <span className="pb-title">{p.name}</span>
+          <span className="pb-version">v{p.version}</span>
+          <EnabledBadge enabled={p.enabled} />
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="pb-desc">{p.description}</p>
+
+      {/* Trigger */}
+      {p.trigger && Object.keys(p.trigger).length > 0 && (
+        <div className="pb-trigger-row">
+          <span className="pb-trigger-label">TRIGGER:</span>
+          <code className="pb-trigger-value">{JSON.stringify(p.trigger)}</code>
+          {p.conditions?.length > 0 && (
+            <>
+              <span className="pb-trigger-label" style={{ marginLeft: 8 }}>CONDITIONS:</span>
+              <code className="pb-trigger-value">{p.conditions.map((c) => `${c.field} ${c.op || 'eq'} ${c.value}`).join('; ')}</code>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Execution chain */}
+      {p.steps?.length > 0 && (
+        <>
+          <div className="pb-chain-label">STEPS ({p.steps.length}):</div>
+          <ExecChain steps={p.steps} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ─── Executions tab ─── */
+function ExecutionsTab({ execs }) {
+  return (
+    <Async state={execs} empty={(d) => d.length === 0} emptyText="No playbook has run yet.">
+      {(rows) => (
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Playbook</th><th>Status</th><th>Incident</th><th>Started</th><th>By</th><th>Steps</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((x) => (
+                <tr key={x.id}>
+                  <td><strong>{x.playbook}</strong></td>
+                  <td><StatusBadge status={x.status} /></td>
+                  <td><Link to={`/incidents/${x.incident_number}`}>{x.incident_number}</Link></td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{fmtDate(x.created_at)}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{x.requested_by}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {x.steps.map((s) => (
+                        <span key={s.id} title={s.result?.detail}>
+                          <StatusBadge status={s.status} /> {s.action}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Async>
+  );
+}
+
+/* ─── Effectiveness tab ─── */
+function EffectivenessTab({ stats }) {
+  return (
+    <Async state={stats}>
+      {(s) => (
+        <div className="card">
+          <div className="grid-4" style={{ marginBottom: 16 }}>
+            {[
+              ['Executions', s.totals.executions],
+              ['Steps', s.totals.steps],
+              ['Approvals', s.totals.approvals],
+              ['Avg decision', s.approvals.avg_seconds_to_decision ? `${s.approvals.avg_seconds_to_decision}s` : '—'],
+            ].map(([label, val]) => (
+              <div key={label} className="stat-card">
+                <div className="stat-info">
+                  <h3>{label}</h3>
+                  <span className="stat-value">{val}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="table-container">
+            <table>
+              <thead><tr><th>Action</th><th>Runs</th><th>Succeeded</th><th>Skipped</th><th>Failed</th><th>Verified</th></tr></thead>
+              <tbody>
+                {Object.entries(s.actions).map(([k, a]) => (
+                  <tr key={k}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{k}</td>
+                    <td>{a.runs}</td>
+                    <td style={{ color: 'var(--success)' }}>{a.succeeded || 0}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>{a.skipped || 0}</td>
+                    <td style={{ color: 'var(--critical)' }}>{a.failed || 0}</td>
+                    <td>{a.verified || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {s.recommendations.map((r, i) => <p key={i} style={{ marginTop: 8, color: 'var(--text-secondary)', fontSize: 13 }}>• {r}</p>)}
+        </div>
+      )}
+    </Async>
+  );
+}
+
+/* ─── Main Page ─── */
 export default function Playbooks() {
-  const [tab, setTab] = useState('playbooks');
+  const [tab, setTab] = useState('Playbooks');
+  const [filter, setFilter] = useState('');
+  const [stateFilter, setStateFilter] = useState('all');
   const defs = useLoad(async () => (await api.get('/playbooks')).data, []);
   const execs = useLoad(async () => (await api.get('/executions?limit=50')).data.executions, [tab]);
   const stats = useLoad(async () => (await api.get('/playbooks/stats')).data, [tab]);
 
   return (
-    <div className="page-container">
-      <Header title="Playbooks" sub="Trigger → conditions → steps → approval → execution → verification → rollback" />
-      <Tabs tabs={['playbooks', 'executions', 'effectiveness']} active={tab} onChange={setTab} />
-      {tab === 'playbooks' && (
+    <div className="page-container pb-page">
+
+      {/* ── Page header ── */}
+      <div className="pb-page-header">
+        <div className="pb-page-header-left">
+          <h1 className="pb-page-title">Playbooks</h1>
+          <div className="pb-page-meta">
+            <span className="pb-lifecycle">
+              Lifecycle: <span className="pb-lifecycle-chain">trigger → conditions → steps → approval → execution → verification → rollback</span>
+            </span>
+          </div>
+        </div>
+        {defs.data && (
+          <div className="pb-page-stats">
+            <div className="pb-stat-block">
+              <span className="pb-stat-label">Enabled:</span>
+              <span className="pb-stat-value">{defs.data.playbooks.filter((p) => p.enabled).length}</span>
+            </div>
+            <div className="pb-stat-block">
+              <span className="pb-stat-label">Disabled:</span>
+              <span className="pb-stat-value">{defs.data.playbooks.filter((p) => !p.enabled).length}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className="pb-tabs" role="tablist">
+        {[
+          { id: 'Playbooks', count: defs.data?.playbooks?.length },
+          { id: 'Executions', count: execs.data?.length },
+          { id: 'Effectiveness & ROI', count: null },
+        ].map(({ id, count }) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            className={`pb-tab ${tab === id ? 'active' : ''}`}
+            onClick={() => setTab(id)}
+          >
+            {id}{count != null && <span className="pb-tab-count">{count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Playbooks tab ── */}
+      {tab === 'Playbooks' && (
         <Async state={defs}>
-          {(d) => (
-            <>
-              {d.playbooks.map((p) => (
-                <div className="card" key={p.name} style={{ marginBottom: 12 }}>
-                  <div className="flex-between"><h3>{p.name} <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>v{p.version}</span></h3>
-                    <span className={`badge ${p.enabled ? 'badge-resolved' : 'badge-info'}`}>{p.enabled ? 'enabled' : 'disabled'}</span></div>
-                  <p style={{ color: 'var(--text-secondary)', margin: '4px 0 10px' }}>{p.description}</p>
-                  <p style={{ fontSize: 12 }}><strong>Trigger:</strong> {p.trigger && Object.keys(p.trigger).length ? JSON.stringify(p.trigger) : 'manual only'} ·{' '}
-                    <strong>Conditions:</strong> {p.conditions.length ? p.conditions.map((c) => `${c.field} ${c.op || 'eq'} ${c.value}`).join('; ') : 'none'}</p>
-                  <ol style={{ marginLeft: 18, marginTop: 8 }}>{p.steps.map((s) => (
-                    <li key={s.id}><strong>{s.action}</strong> <span className={`badge ${RISK[s.risk]}`}>{s.risk}</span>{' '}
-                      {s.approval === 'required' && <span className="badge badge-medium">approval required</span>}
-                      {s.params && <code style={{ fontSize: 11, marginLeft: 6 }}>{JSON.stringify(s.params)}</code>}</li>))}</ol>
+          {(d) => {
+            const all = d.playbooks || [];
+            const filtered = all.filter((p) => {
+              const matchSearch = !filter || p.name.toLowerCase().includes(filter.toLowerCase()) || p.description?.toLowerCase().includes(filter.toLowerCase());
+              const matchState = stateFilter === 'all' || (stateFilter === 'enabled' && p.enabled) || (stateFilter === 'disabled' && !p.enabled);
+              return matchSearch && matchState;
+            });
+            const enabledCount = all.filter((p) => p.enabled).length;
+            const disabledCount = all.filter((p) => !p.enabled).length;
+
+            return (
+              <>
+                {/* Filter bar */}
+                <div className="pb-filter-row">
+                  <input
+                    className="pb-filter-input"
+                    placeholder="Filter by keyword…"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    aria-label="Filter playbooks"
+                  />
+                  <div className="pb-state-pills">
+                    {[
+                      { v: 'all', label: `All (${all.length})` },
+                      { v: 'enabled', label: `Enabled (${enabledCount})` },
+                      { v: 'disabled', label: `Disabled (${disabledCount})` },
+                    ].map(({ v, label }) => (
+                      <button
+                        key={v}
+                        className={`pb-state-pill ${stateFilter === v ? 'active' : ''}`}
+                        onClick={() => setStateFilter(v)}
+                      >{label}</button>
+                    ))}
+                  </div>
                 </div>
-              ))}
-              <div className="card">
-                <h3 className="section-title">Available actions</h3>
-                <table><thead><tr><th>Action</th><th>Risk</th><th>Reversible</th><th>What it does</th></tr></thead>
-                  <tbody>{d.actions.map((a) => (<tr key={a.name}><td>{a.name}</td><td><span className={`badge ${RISK[a.risk]}`}>{a.risk}</span></td><td>{a.reversible ? 'yes' : 'no'}</td><td>{a.description}</td></tr>))}</tbody></table>
-                <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>Low-risk actions run automatically. Higher-risk actions wait for approval (see <code>AUTO_EXECUTE_MAX_RISK</code>); high-risk always do. Actions that need an unconfigured connector are reported as “skipped”, never as success.</p>
-              </div>
-            </>
-          )}
+
+                {/* Cards */}
+                <div className="pb-cards-list">
+                  {filtered.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No playbooks match the filter.</div>
+                  ) : (
+                    filtered.map((p) => <PlaybookCard key={p.name} p={p} />)
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="pb-footer">
+                  <span>Showing {filtered.length} of {all.length} playbooks</span>
+                </div>
+              </>
+            );
+          }}
         </Async>
       )}
-      {tab === 'executions' && (
-        <div className="card"><Async state={execs} empty={(d) => d.length === 0} emptyText="No playbook has run yet.">
-          {(rows) => rows.map((x) => (
-            <div key={x.id} style={{ marginBottom: 14 }}>
-              <div className="flex-gap"><strong>{x.playbook}</strong> <StatusBadge status={x.status} />
-                <Link to={`/incidents/${x.incident_number}`}>{x.incident_number}</Link>
-                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{fmtDate(x.created_at)} · {x.requested_by}</span></div>
-              <div className="flex-gap" style={{ flexWrap: 'wrap', marginTop: 4 }}>{x.steps.map((s) => (
-                <span key={s.id} title={s.result?.detail}><StatusBadge status={s.status} /> {s.action}{s.verified === true ? ' ✓' : s.verified === false ? ' ✗' : ''}</span>))}</div>
-              {x.error && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{x.error}</p>}
-            </div>
-          ))}
-        </Async></div>
-      )}
-      {tab === 'effectiveness' && (
-        <Async state={stats}>
-          {(s) => (
-            <div className="card">
-              <p>{s.totals.executions} execution(s), {s.totals.steps} step(s), {s.totals.approvals} approval(s). {s.approvals.avg_seconds_to_decision !== null && `Average time to decision: ${s.approvals.avg_seconds_to_decision}s.`}</p>
-              <table><thead><tr><th>Action</th><th>Runs</th><th>Succeeded</th><th>Skipped</th><th>Failed</th><th>Verified</th></tr></thead>
-                <tbody>{Object.entries(s.actions).map(([k, a]) => (<tr key={k}><td>{k}</td><td>{a.runs}</td><td>{a.succeeded || 0}</td><td>{a.skipped || 0}</td><td>{a.failed || 0}</td><td>{a.verified || 0}</td></tr>))}</tbody></table>
-              {s.recommendations.map((r, i) => <p key={i} style={{ marginTop: 8, color: 'var(--text-secondary)' }}>• {r}</p>)}
-            </div>
-          )}
-        </Async>
-      )}
+
+      {tab === 'Executions' && <ExecutionsTab execs={execs} />}
+      {tab === 'Effectiveness & ROI' && <EffectivenessTab stats={stats} />}
     </div>
   );
 }

@@ -15,7 +15,7 @@ function layout(nodes, edges, root) {
   const cols = {};
   nodes.forEach((n) => { (cols[depth[n.id]] = cols[depth[n.id]] || []).push(n); });
   const pos = {};
-  Object.entries(cols).forEach(([d, list]) => list.forEach((n, i) => { pos[n.id] = { x: 90 + Number(d) * 190, y: 50 + i * 80 + (Number(d) % 2) * 20 }; }));
+  Object.entries(cols).forEach(([d, list]) => list.forEach((n, i) => { pos[n.id] = { x: 90 + Number(d) * 190, y: 60 + i * 96 + (Number(d) % 2) * 24 }; }));
   return pos;
 }
 
@@ -29,8 +29,11 @@ function Graph({ graph, highlight }) {
       {graph.edges.map((e, i) => {
         const a = pos[e.source]; const b = pos[e.target];
         if (!a || !b) return null;
+        const label = `${e.protocol}/${e.port}`;
+        const lx = (a.x + b.x) / 2; const ly = (a.y + b.y) / 2 - 4;
         return (<g key={i}><line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#475569" strokeWidth="1.5" markerEnd="url(#arr)" />
-          <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 4} fill="#94a3b8" fontSize="9" textAnchor="middle">{e.protocol}/{e.port}</text></g>);
+          <rect x={lx - label.length * 2.8} y={ly - 8} width={label.length * 5.6} height="11" fill="var(--bg-secondary)" opacity="0.9" />
+          <text x={lx} y={ly} fill="#94a3b8" fontSize="9" textAnchor="middle">{label}</text></g>);
       })}
       {graph.nodes.map((n) => {
         const p = pos[n.id];

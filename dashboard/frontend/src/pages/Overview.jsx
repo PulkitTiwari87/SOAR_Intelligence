@@ -4,11 +4,14 @@ import { AlertTriangle, Bot, Clock, ClipboardCheck, Flame, ShieldAlert, Timer } 
 import { api } from '../api';
 import { Async, fmtDate, fmtDuration, Header, SEV_COLOR, SevBadge, StatusBadge, useLoad } from '../ui';
 
-function Stat({ label, value, icon: Icon, color = 'blue', hint }) {
+function Stat({ label, value, icon: Icon, color = 'blue', hint, lead = false }) {
   return (
-    <div className={`stat-card ${color}`} title={hint}>
-      <div className={`stat-icon ${color}`}><Icon size={22} /></div>
-      <div className="stat-info"><h3>{label}</h3><div className="stat-value">{value}</div></div>
+    <div className={`stat-card ${color}`} title={hint} style={lead ? { padding: '20px 22px', gap: 18 } : undefined}>
+      <div className={`stat-icon ${color}`} style={lead ? { width: 46, height: 46 } : undefined}><Icon size={lead ? 24 : 20} /></div>
+      <div className="stat-info">
+        <h3>{label}</h3>
+        <div className="stat-value" style={lead ? { fontSize: '2.1rem' } : undefined}>{value}</div>
+      </div>
     </div>
   );
 }
@@ -29,12 +32,12 @@ export default function Overview() {
                 <strong>{s.pending_approvals}</strong> response action(s) are waiting for a human decision →
               </Link>
             )}
-            <div className="grid-3" style={{ marginBottom: 16 }}>
-              <Stat label="Active incidents" value={s.active} icon={ShieldAlert} color="blue" />
-              <Stat label="Critical (open)" value={s.critical} icon={Flame} color="red" />
-              <Stat label="Alerts today" value={s.alerts_today} icon={AlertTriangle} color="yellow" hint="Events of severity medium or higher received today (UTC)" />
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <Stat label="Critical (open)" value={s.critical} icon={Flame} color="red" lead />
+              <Stat label="Active incidents" value={s.active} icon={ShieldAlert} color="blue" lead />
             </div>
-            <div className="grid-3" style={{ marginBottom: 24 }}>
+            <div className="grid-4" style={{ marginBottom: 24 }}>
+              <Stat label="Alerts today" value={s.alerts_today} icon={AlertTriangle} color="yellow" hint="Events of severity medium or higher received today (UTC)" />
               <Stat label="Automated responses" value={s.automated_responses} icon={Bot} color="green" hint="Playbook steps that succeeded without a human decision" />
               <Stat label="MTTD" value={fmtDuration(s.mttd_seconds)} icon={Timer} color="blue" hint={s.mttd_definition} />
               <Stat label="MTTR" value={fmtDuration(s.mttr_seconds)} icon={Clock} color="blue" hint={s.mttr_definition} />
@@ -74,7 +77,7 @@ export default function Overview() {
                   <thead><tr><th>ID</th><th>Title</th><th>Severity</th><th>Status</th><th>Risk</th><th>Detected</th></tr></thead>
                   <tbody>{recent.map((i) => (
                     <tr key={i.id}>
-                      <td><Link to={`/incidents/${i.number}`}>{i.number}</Link></td><td>{i.title}</td>
+                      <td style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: '0.85em' }}><Link to={`/incidents/${i.number}`}>{i.number}</Link></td><td>{i.title}</td>
                       <td><SevBadge level={i.severity} /></td><td><StatusBadge status={i.status} /></td>
                       <td>{i.risk_score}</td><td>{fmtDate(i.detected_at)}</td>
                     </tr>

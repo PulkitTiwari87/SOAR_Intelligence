@@ -50,3 +50,11 @@ Thumbs.db
 .gemini/
 .claude/
 graphify-out/
+
+# ── Design-process artifacts (local-only; not product docs) ──
+.impeccable/
+PRODUCT.md
+DESIGN.md
+.stitch/
+.mcp-stitch/
+stitch_*/

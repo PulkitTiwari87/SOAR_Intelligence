@@ -56,7 +56,7 @@ export default function Incidents() {
                 <thead><tr><th>ID</th><th>Title</th><th>Sev.</th><th>Status</th><th>Risk</th><th>Source</th><th>Host / IP</th><th>Events</th><th>MITRE</th><th>Detected</th></tr></thead>
                 <tbody>{d.incidents.map((i) => (
                   <tr key={i.id}>
-                    <td><Link to={`/incidents/${i.number}`}>{i.number}</Link></td>
+                    <td style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: '0.85em' }}><Link to={`/incidents/${i.number}`}>{i.number}</Link></td>
                     <td style={{ maxWidth: 280 }}>{i.title}</td>
                     <td><SevBadge level={i.severity} /></td><td><StatusBadge status={i.status} /></td>
                     <td>{i.risk_score}</td><td>{i.source}</td><td>{i.primary_host || i.primary_source_ip || '—'}</td>

@@ -112,9 +112,17 @@ export default function IncidentDetail() {
                     <>
                       <p><strong>Triage:</strong> {triage.prediction} (p = {triage.confidence}) · model {triage.version}</p>
                       <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Trained on {triage.result.trained_on}: not validated on real incidents.</p>
-                      <table><tbody>{triage.result.top_features.map((f) => (
-                        <tr key={f.feature}><td>{f.feature} = {f.value}</td><td style={{ color: f.contribution > 0 ? 'var(--danger)' : 'var(--success)' }}>{f.contribution > 0 ? '+' : ''}{f.contribution} log-odds</td></tr>
-                      ))}</tbody></table>
+                      <table>
+                        <thead><tr><th>Feature</th><th>Value</th><th>Contribution</th><th>Polarity</th></tr></thead>
+                        <tbody>{triage.result.top_features.map((f) => (
+                          <tr key={f.feature}>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85em' }}>{f.feature}</td>
+                            <td>{f.value}</td>
+                            <td style={{ color: f.contribution > 0 ? 'var(--danger)' : 'var(--success)' }}>{f.contribution > 0 ? '+' : ''}{f.contribution} log-odds</td>
+                            <td><span className={`badge ${f.contribution > 0 ? 'badge-critical' : 'badge-low'}`}>{f.contribution > 0 ? 'malicious' : 'benign'}</span></td>
+                          </tr>
+                        ))}</tbody>
+                      </table>
                     </>
                   ) : <p style={{ color: 'var(--text-muted)' }}>No triage result yet.</p>}
                   {inc.analysis.anomaly && <p style={{ marginTop: 10 }}><strong>Anomaly:</strong> {inc.analysis.anomaly.prediction} (percentile {inc.analysis.anomaly.result.anomaly_score}{inc.analysis.anomaly.result.trigger ? `, trigger ${inc.analysis.anomaly.result.trigger}` : ''})</p>}
