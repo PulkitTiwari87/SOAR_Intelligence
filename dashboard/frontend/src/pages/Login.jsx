@@ -39,6 +39,9 @@ export default function Login() {
         <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 16, textAlign: 'center' }}>
           Accounts are created by an administrator. See the README for creating the first one.
         </p>
+        <p style={{ fontSize: 12, marginTop: 8, textAlign: 'center' }}>
+          <a href="/ml" style={{ color: 'var(--accent)' }}>View the ML overview and live demo</a>
+        </p>
       </form>
     </div>
   );

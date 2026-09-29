@@ -1,0 +1,155 @@
+/* Shared design tokens + chrome, ported from the real SOAR Intelligence
+   dashboard (dashboard/frontend/src/index.css). Used by every scene sub-composition. */
+
+@font-face {
+  font-family: 'Plex Sans';
+  src: url('fonts/IBMPlexSans-Variable.woff2') format('woff2-variations'), url('fonts/IBMPlexSans-Variable.woff2') format('woff2');
+  font-weight: 100 700;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Plex Mono';
+  src: url('fonts/IBMPlexMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Plex Mono';
+  src: url('fonts/IBMPlexMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+}
+
+:root {
+  --bg-primary: #16171B;
+  --bg-secondary: #1C1D22;
+  --bg-card: #1E1F25;
+  --bg-card-hover: #252630;
+  --bg-sidebar: #131418;
+  --bg-input: #1C1D22;
+
+  --accent: #9B98B8;
+  --accent-hover: #B0ADCC;
+  --accent-wash: rgba(119, 116, 145, 0.14);
+  --accent-wash-strong: rgba(119, 116, 145, 0.26);
+  --accent-ink: #16171B;
+
+  --border: rgba(114, 119, 133, 0.18);
+  --border-hover: rgba(114, 119, 133, 0.32);
+  --border-strong: rgba(114, 119, 133, 0.48);
+
+  --text-primary: #E2E3E8;
+  --text-secondary: #ACADB6;
+  --text-muted: #8A8D99;
+
+  --critical: #C0392B;
+  --critical-wash: rgba(192, 57, 43, 0.14);
+  --high: #A0522D;
+  --high-wash: rgba(160, 82, 45, 0.14);
+  --warning: #A78F71;
+  --warning-wash: rgba(139, 115, 85, 0.14);
+  --success: #5A9C6E;
+  --success-wash: rgba(74, 124, 89, 0.14);
+  --info: #5C9AAC;
+  --info-wash: rgba(74, 124, 140, 0.14);
+
+  --font-ui: 'Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --sidebar-width: 236px;
+  --navbar-height: 56px;
+}
+
+.sh-frame {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-primary);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ── sidebar ── */
+.sh-sidebar {
+  position: absolute; left: 0; top: 0; bottom: 0; width: var(--sidebar-width);
+  background: var(--bg-sidebar); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+.sh-brand {
+  display: flex; align-items: center; gap: 10px; padding: 18px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.sh-brand-icon {
+  width: 26px; height: 26px; border-radius: 5px; background: var(--accent-wash);
+  display: flex; align-items: center; justify-content: center; color: var(--accent);
+  font-family: var(--font-mono); font-weight: 700; font-size: 13px; flex-shrink: 0;
+}
+.sh-brand-name { font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+.sh-nav { display: flex; flex-direction: column; padding: 10px 10px; gap: 2px; }
+.sh-nav-link {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 6px;
+  color: var(--text-secondary); font-weight: 500; font-size: 13px;
+}
+.sh-nav-link.active { background: var(--accent-wash); color: var(--accent); font-weight: 600; }
+.sh-nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.55; flex-shrink: 0; }
+
+/* ── topbar ── */
+.sh-topbar {
+  position: absolute; left: var(--sidebar-width); right: 0; top: 0; height: var(--navbar-height);
+  display: flex; align-items: center; padding: 0 22px; gap: 14px;
+  border-bottom: 1px solid var(--border); background: var(--bg-primary);
+}
+.sh-breadcrumb { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.05em; color: var(--text-muted); }
+.sh-breadcrumb strong { color: var(--text-primary); font-weight: 700; }
+.sh-live { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--success); }
+.sh-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+/* ── content area ── */
+.sh-content { position: absolute; left: var(--sidebar-width); right: 0; top: var(--navbar-height); bottom: 0; padding: 26px 32px; }
+.sh-page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 3px; }
+.sh-page-sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 22px; }
+
+/* ── card / grid ── */
+.sh-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+.sh-section-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary); }
+.sh-grid { display: grid; gap: 14px; }
+
+/* ── stat card ── */
+.sh-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: flex; align-items: center; gap: 14px; }
+.sh-stat-icon { width: 38px; height: 38px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sh-stat-icon.red { background: var(--critical-wash); color: var(--critical); }
+.sh-stat-icon.blue { background: var(--accent-wash); color: var(--accent); }
+.sh-stat-icon.yellow { background: var(--warning-wash); color: var(--warning); }
+.sh-stat-icon.green { background: var(--success-wash); color: var(--success); }
+.sh-stat-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+.sh-stat-value { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+
+/* ── badges ── */
+.sh-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.sh-badge-critical { background: var(--critical-wash); color: #ff7a7a; }
+.sh-badge-high { background: var(--high-wash); color: var(--high); }
+.sh-badge-medium { background: var(--warning-wash); color: var(--warning); }
+.sh-badge-low { background: var(--success-wash); color: var(--success); }
+.sh-badge-info { background: var(--info-wash); color: var(--info); }
+.sh-badge-open { background: var(--critical-wash); color: #ff7a7a; }
+.sh-badge-resolved { background: var(--success-wash); color: var(--success); }
+
+/* ── table ── */
+.sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sh-table thead th { background: var(--bg-secondary); padding: 9px 14px; text-align: left; font-size: 10.5px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); }
+.sh-table tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.sh-table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.sh-mono { font-family: var(--font-mono); }
+
+/* ── buttons ── */
+.sh-btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 7px; font-size: 12.5px; font-weight: 600; border: 1px solid transparent; }
+.sh-btn-primary { background: var(--accent); color: var(--accent-ink); }
+.sh-btn-ghost { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+
+/* ── scene caption text ── */
+.sh-caption {
+  position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%);
+  font-family: var(--font-ui); font-weight: 500; font-size: 26px; color: var(--text-primary);
+  letter-spacing: -0.005em; text-align: center; white-space: nowrap;
+  text-shadow: 0 2px 18px rgba(0,0,0,0.65);
+}

@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root { position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden; }
+        .s3-caption { opacity: 0; }
+        .s3-header { opacity: 0; transform: translateY(8px); display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .s3-inc-id { font-family: var(--font-mono); font-size: 20px; font-weight: 600; }
+        .s3-inc-title { color: var(--text-secondary); font-size: 15px; }
+        .s3-cols { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+        .s3-cols .sh-card { opacity: 0; transform: translateY(10px); }
+        .s3-signal-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .s3-signal-row:last-child { border-bottom: none; }
+        .s3-signal-label { width: 150px; font-size: 12.5px; color: var(--text-secondary); flex-shrink: 0; }
+        .s3-signal-track { flex: 1; height: 8px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+        .s3-signal-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; }
+        .s3-signal-val { width: 34px; text-align: right; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
+        .s3-total { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+        .s3-total-num { font-size: 40px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); }
+        .s3-total-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .s3-mitre-chip { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; opacity: 0; transform: translateX(-10px); }
+        .s3-mitre-id { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); font-weight: 700; }
+        .s3-mitre-name { font-size: 12.5px; color: var(--text-secondary); }
+        .s3-mitre-src { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+      </style>
+
+      <div id="root" data-composition-id="scene3-incident" data-width="1920" data-height="1080">
+        <div class="sh-frame">
+          <div class="sh-sidebar">
+            <div class="sh-brand"><div class="sh-brand-icon">SI</div><div class="sh-brand-name">Soar Intelligence</div></div>
+            <div class="sh-nav">
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Overview</div>
+              <div class="sh-nav-link active"><span class="sh-nav-dot"></span>Incidents</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Approvals</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Threat Intel</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Assets</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Playbooks</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>AI &amp; Analysis</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>System</div>
+            </div>
+          </div>
+          <div class="sh-topbar">
+            <div class="sh-breadcrumb">SOAR INTELLIGENCE / INCIDENTS / <strong>INC-1042</strong></div>
+            <div class="sh-live"><span class="sh-live-dot"></span>LIVE FEED</div>
+          </div>
+          <div class="sh-content">
+            <div class="s3-header">
+              <span class="s3-inc-id">INC-1042</span>
+              <span class="s3-inc-title">Brute-force login attempts &mdash; 10.0.2.14</span>
+              <span class="sh-badge sh-badge-critical">Critical</span>
+              <span class="sh-badge sh-badge-open">Open</span>
+            </div>
+
+            <div class="s3-cols">
+              <div class="sh-card">
+                <div class="sh-section-title">Risk score breakdown</div>
+                <div class="s3-total"><span class="s3-total-num">82</span><span class="s3-total-label">/ 100</span></div>
+                <div class="s3-signal-row"><span class="s3-signal-label">ML triage</span><div class="s3-signal-track"><div class="s3-signal-fill" id="s3-f1"></div></div><span class="s3-signal-val">0.88</span></div>
+                <div class="s3-signal-row"><span class="s3-signal-label">Severity</span><div class="s3-signal-track"><div class="s3-signal-fill" id="s3-f2"></div></div><span class="s3-signal-val">0.90</span></div>
+                <div class="s3-signal-row"><span class="s3-signal-label">Threat intel</span><div class="s3-signal-track"><div class="s3-signal-fill" id="s3-f3"></div></div><span class="s3-signal-val">0.62</span></div>
+                <div class="s3-signal-row"><span class="s3-signal-label">Anomaly</span><div class="s3-signal-track"><div class="s3-signal-fill" id="s3-f4"></div></div><span class="s3-signal-val">0.71</span></div>
+                <div class="s3-signal-row"><span class="s3-signal-label">Correlation</span><div class="s3-signal-track"><div class="s3-signal-fill" id="s3-f5"></div></div><span class="s3-signal-val">0.55</span></div>
+              </div>
+              <div class="sh-card">
+                <div class="sh-section-title">MITRE ATT&amp;CK</div>
+                <div class="s3-mitre-chip" id="s3-m1"><span class="s3-mitre-id">T1110 &mdash; Brute Force</span><span class="s3-mitre-src">source: rule &middot; confidence high</span></div>
+                <div class="s3-mitre-chip" id="s3-m2"><span class="s3-mitre-id">T1078 &mdash; Valid Accounts</span><span class="s3-mitre-src">source: rule &middot; confidence medium</span></div>
+                <div class="s3-mitre-chip" id="s3-m3"><span class="s3-mitre-id">T1021 &mdash; Remote Services</span><span class="s3-mitre-src">source: LLM &middot; inferred</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sh-caption s3-caption" id="s3-caption">From detection to actionable incidents</div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo('.sh-sidebar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('.sh-topbar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('.s3-header', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35 }, 0.05);
+        tl.fromTo('#s3-caption', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }, 0.2);
+        tl.fromTo('.s3-cols .sh-card', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.1 }, 0.4);
+
+        // beat-grid: signal rows at 0.55s, 1.11s (strong cue, total score), 1.64s, 2.20s
+        tl.fromTo('#s3-f1', { width: '0%' }, { width: '88%', duration: 0.4 }, 0.55);
+        tl.fromTo(['.s3-total-num'], { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(1.6)' }, 1.11); // beat-locked: 1.11s (global 13.11s strong cue)
+        tl.fromTo('#s3-f2', { width: '0%' }, { width: '90%', duration: 0.4 }, 1.11);
+        tl.fromTo('#s3-f3', { width: '0%' }, { width: '62%', duration: 0.4 }, 1.64);
+        tl.fromTo('#s3-f4', { width: '0%' }, { width: '71%', duration: 0.4 }, 2.20);
+        tl.fromTo('#s3-f5', { width: '0%' }, { width: '55%', duration: 0.4 }, 2.73);
+
+        tl.fromTo('#s3-m1', { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.3 }, 0.8);
+        tl.fromTo('#s3-m2', { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.3 }, 1.35);
+        tl.fromTo('#s3-m3', { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.3 }, 1.9);
+
+        tl.to('#s3-caption', { opacity: 0, duration: 0.3 }, 6.2);
+        window.__timelines['scene3-incident'] = tl;
+      </script>
+    </template>
+  </body>
+</html>

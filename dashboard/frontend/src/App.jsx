@@ -12,6 +12,7 @@ import Playbooks from './pages/Playbooks';
 import AIModels from './pages/AIModels';
 import System from './pages/System';
 import Admin from './pages/Admin';
+import MLOverview from './pages/MLOverview';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -39,9 +40,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <Routes>
+        {/* Public and static: rendered outside AuthProvider so it needs no backend session. */}
+        <Route path="/ml" element={<MLOverview />} />
+        <Route path="*" element={<AuthProvider><AppRoutes /></AuthProvider>} />
+      </Routes>
     </BrowserRouter>
   );
 }

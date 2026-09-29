@@ -1,0 +1,2 @@
+SOAR Intelligence.
+Event → correlated incident → ML/LLM-assisted triage → threat intel → policy-gated, human-approved response — one self-hosted SOC workflow, no black boxes.

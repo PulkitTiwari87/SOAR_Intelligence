@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root { position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden; }
+        .s4-caption { opacity: 0; }
+        .s4-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); margin-bottom: 18px; padding-bottom: 10px; opacity: 0; }
+        .s4-tab { font-size: 13px; color: var(--text-secondary); }
+        .s4-tab.active { color: var(--accent); font-weight: 600; }
+        .s4-block { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; opacity: 0; transform: translateY(10px); }
+        .s4-block-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .s4-block-title { font-size: 12.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+        .s4-badge-active { background: var(--success-wash); color: var(--success); font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 4px; letter-spacing: 0.03em; opacity: 0; }
+        .s4-feat-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+        .s4-feat-label { width: 190px; font-size: 12px; color: var(--text-secondary); flex-shrink: 0; }
+        .s4-feat-track { flex: 1; height: 7px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+        .s4-feat-fill { height: 100%; width: 0%; background: var(--accent); }
+        .s4-btn-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+        .s4-cursor { position: absolute; width: 20px; height: 20px; opacity: 0; }
+        .s4-cursor svg { width: 100%; height: 100%; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
+        .s4-result { opacity: 0; transform: translateY(6px); margin-top: 10px; }
+        .s4-result-badge { display: inline-block; background: var(--warning-wash); color: var(--warning); font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 5px; }
+      </style>
+
+      <div id="root" data-composition-id="scene4-ai" data-width="1920" data-height="1080">
+        <div class="sh-frame">
+          <div class="sh-sidebar">
+            <div class="sh-brand"><div class="sh-brand-icon">SI</div><div class="sh-brand-name">Soar Intelligence</div></div>
+            <div class="sh-nav">
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Overview</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Incidents</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Approvals</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Threat Intel</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Assets</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Playbooks</div>
+              <div class="sh-nav-link active"><span class="sh-nav-dot"></span>AI &amp; Analysis</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>System</div>
+            </div>
+          </div>
+          <div class="sh-topbar">
+            <div class="sh-breadcrumb">SOAR INTELLIGENCE / <strong>AI &amp; ANALYSIS</strong></div>
+            <div class="sh-live"><span class="sh-live-dot"></span>LIVE FEED</div>
+          </div>
+          <div class="sh-content">
+            <div class="sh-page-title">AI &amp; analysis</div>
+            <div class="sh-page-sub" style="margin-bottom:16px;">Explainable ML and LLM-assisted decision support for INC-1042</div>
+
+            <div class="s4-tabs" id="s4-tabs">
+              <span class="s4-tab active">LLM commander</span>
+              <span class="s4-tab">ML triage</span>
+              <span class="s4-tab">Anomaly detector</span>
+              <span class="s4-tab">Phishing</span>
+              <span class="s4-tab">Log clusters</span>
+            </div>
+
+            <div class="s4-block" id="s4-block1">
+              <div class="s4-block-head">
+                <span class="s4-block-title">ML triage &middot; XGBoost + TreeSHAP</span>
+                <span class="s4-badge-active" id="s4-badge1">ACTIVE</span>
+              </div>
+              <div class="s4-feat-row"><span class="s4-feat-label">failed_logins_15m</span><div class="s4-feat-track"><div class="s4-feat-fill" id="s4-ff1"></div></div></div>
+              <div class="s4-feat-row"><span class="s4-feat-label">distinct_usernames</span><div class="s4-feat-track"><div class="s4-feat-fill" id="s4-ff2"></div></div></div>
+              <div class="s4-feat-row"><span class="s4-feat-label">source_reputation</span><div class="s4-feat-track"><div class="s4-feat-fill" id="s4-ff3"></div></div></div>
+            </div>
+
+            <div class="s4-block" id="s4-block2">
+              <div class="s4-block-head">
+                <span class="s4-block-title">Anomaly detector &middot; Isolation Forest</span>
+                <span class="s4-badge-active">ACTIVE</span>
+              </div>
+              <div class="s4-feat-row"><span class="s4-feat-label">login velocity deviation</span><div class="s4-feat-track"><div class="s4-feat-fill" id="s4-ff4"></div></div></div>
+              <div class="s4-feat-row"><span class="s4-feat-label">off-hours access</span><div class="s4-feat-track"><div class="s4-feat-fill" id="s4-ff5"></div></div></div>
+            </div>
+
+            <div class="s4-block" id="s4-block3">
+              <div class="s4-block-head">
+                <span class="s4-block-title">LLM incident commander</span>
+              </div>
+              <div class="s4-btn-row">
+                <span class="sh-btn sh-btn-primary" id="s4-llm-btn">Run LLM analysis</span>
+              </div>
+              <div class="s4-result" id="s4-result">
+                <span class="s4-result-badge">rule-based fallback (no LLM used)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="s4-cursor" id="s4-cursor">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 2L4 20L9 15.5L12.5 22L15 20.5L11.5 14L18 14L4 2Z" fill="#E2E3E8" stroke="#16171B" stroke-width="1"/></svg>
+        </div>
+        <div class="sh-caption s4-caption" id="s4-caption">AI-assisted investigation</div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo('.sh-sidebar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('.sh-topbar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('#s4-tabs', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 0.05);
+        tl.fromTo('#s4-caption', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }, 0.15);
+
+        tl.fromTo('#s4-block1', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 }, 0.3);
+        tl.fromTo('#s4-ff1', { width: '0%' }, { width: '82%', duration: 0.4 }, 0.5);
+        tl.fromTo('#s4-ff2', { width: '0%' }, { width: '64%', duration: 0.4 }, 0.6);
+        // beat-locked: 0.66s (global 19.66s strong cue) — ML triage confidence badge lands
+        tl.fromTo('#s4-badge1', { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(1.7)' }, 0.66);
+        tl.fromTo('#s4-ff3', { width: '0%' }, { width: '47%', duration: 0.4 }, 0.7);
+
+        tl.fromTo('#s4-block2', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 }, 1.3);
+        tl.fromTo('#s4-ff4', { width: '0%' }, { width: '73%', duration: 0.4 }, 1.5);
+        tl.fromTo('#s4-ff5', { width: '0%' }, { width: '58%', duration: 0.4 }, 1.65);
+
+        tl.fromTo('#s4-block3', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 }, 2.3);
+        tl.set('#s4-cursor', { x: 1180, y: 640, opacity: 0 }, 2.5);
+        tl.to('#s4-cursor', { opacity: 1, duration: 0.2 }, 2.5);
+        tl.to('#s4-cursor', { x: 1235, y: 700, duration: 0.5, ease: 'power2.inOut' }, 2.6);
+        tl.to('#s4-llm-btn', { scale: 0.94, duration: 0.1, yoyo: true, repeat: 1 }, 3.05);
+        tl.to('#s4-cursor', { opacity: 0, duration: 0.2 }, 3.3);
+        tl.fromTo('#s4-result', { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.35 }, 3.45);
+
+        tl.to('#s4-caption', { opacity: 0, duration: 0.3 }, 7.2);
+        window.__timelines['scene4-ai'] = tl;
+      </script>
+    </template>
+  </body>
+</html>

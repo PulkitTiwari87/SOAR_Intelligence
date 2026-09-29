@@ -60,6 +60,22 @@ Details: [DEVELOPMENT.md](DEVELOPMENT.md) · [DEPLOYMENT.md](DEPLOYMENT.md)
 * **Dashboard**: overview KPIs, filterable incidents, incident detail, approvals, threat intel, asset graph, playbooks,
   models, system health, audit and users.
 
+## ML overview and live demo
+
+A public, static page at `/ml` (source: `dashboard/frontend/src/pages/MLOverview.jsx`) explains the pipeline, the models and
+their recorded metrics, and lets you try them. Hosted copy: <https://soar-intelligence.vercel.app> (a direct Vercel
+deployment of the built frontend, not linked to this repository's git history).
+
+* **Triage (XGBoost)** runs **live in the browser**: the shipped `model.json` is evaluated by a small JavaScript tree
+  evaluator with exact TreeSHAP (`src/ml/xgb.js`). `npm test` checks its probabilities and SHAP values against what the
+  Python backend produced for the same inputs.
+* **Phishing and anomaly** replay outputs **recorded from the real Python models**, labelled *precomputed* on the page,
+  because scikit-learn cannot run in a static deployment.
+* All numbers come from `models/*/metadata.json`. Refresh the page data after retraining with
+  `python -m scripts.export_ml_demo` (writes `dashboard/frontend/public/ml-data/`), then rebuild the frontend.
+* Deployment split: the static page needs no backend; the full platform (API, database, auth) runs from Docker Compose
+  and is not part of the hosted page. No environment variables are required for the page.
+
 ## Read this honestly
 
 * The ML models are trained on **synthetic or hand-written data** (no labelled real incidents ship with the repo); their

@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root { position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden; }
+        .s6-caption { opacity: 0; }
+        .s6-header { opacity: 0; transform: translateY(8px); margin-bottom: 16px; }
+        .s6-card { opacity: 0; transform: translateY(10px); margin-bottom: 16px; }
+        .s6-step { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .s6-step:last-child { border-bottom: none; }
+        .s6-step-check { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--border-strong); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .s6-step-check.done { border-color: var(--success); background: var(--success-wash); }
+        .s6-step-check svg { width: 12px; height: 12px; opacity: 0; }
+        .s6-step-name { flex: 1; font-size: 13px; }
+        .s6-step-status { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); }
+        .s6-step-status.verified { color: var(--success); }
+        .s6-step.pending { }
+        .s6-step.pending .s6-step-check { border-color: var(--warning); }
+        .s6-approval-row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--warning); border-radius: 8px; background: var(--warning-wash); }
+        .s6-approval-action { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--warning); }
+        .s6-approval-meta { flex: 1; font-size: 12px; color: var(--text-secondary); }
+        .s6-approval-badge { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--warning); }
+      </style>
+
+      <div id="root" data-composition-id="scene6-response" data-width="1920" data-height="1080">
+        <div class="sh-frame">
+          <div class="sh-sidebar">
+            <div class="sh-brand"><div class="sh-brand-icon">SI</div><div class="sh-brand-name">Soar Intelligence</div></div>
+            <div class="sh-nav">
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Overview</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Incidents</div>
+              <div class="sh-nav-link active"><span class="sh-nav-dot"></span>Approvals</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Threat Intel</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Assets</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Playbooks</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>AI &amp; Analysis</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>System</div>
+            </div>
+          </div>
+          <div class="sh-topbar">
+            <div class="sh-breadcrumb">SOAR INTELLIGENCE / <strong>PLAYBOOKS</strong></div>
+            <div class="sh-live"><span class="sh-live-dot"></span>LIVE FEED</div>
+          </div>
+          <div class="sh-content">
+            <div class="s6-header">
+              <div class="sh-page-title">Playbooks</div>
+              <div class="sh-page-sub">Triggers &middot; conditions &middot; approval &middot; verification &middot; rollback</div>
+            </div>
+
+            <div class="sh-card s6-card" id="s6-card1">
+              <div class="sh-section-title">brute_force_response &middot; INC-1042</div>
+              <div class="s6-step">
+                <div class="s6-step-check done" id="s6-c1"><svg viewBox="0 0 24 24" fill="none" stroke="#4A7C59" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg></div>
+                <span class="s6-step-name">notify_analyst</span>
+                <span class="s6-step-status verified" id="s6-s1">verified</span>
+              </div>
+              <div class="s6-step">
+                <div class="s6-step-check done" id="s6-c2"><svg viewBox="0 0 24 24" fill="none" stroke="#4A7C59" stroke-width="3"><path d="M4 12l6 6L20 6"/></svg></div>
+                <span class="s6-step-name">rate_limit_source</span>
+                <span class="s6-step-status verified" id="s6-s2">verified</span>
+              </div>
+              <div class="s6-step pending">
+                <div class="s6-step-check" id="s6-c3"></div>
+                <span class="s6-step-name">block_ip</span>
+                <span class="s6-step-status">awaiting approval</span>
+              </div>
+            </div>
+
+            <div class="sh-card s6-card" id="s6-card2">
+              <div class="sh-section-title">Approvals</div>
+              <div class="s6-approval-row">
+                <span class="s6-approval-action">block_ip</span>
+                <span class="s6-approval-meta">10.0.2.14 &middot; requested by playbook &middot; INC-1042</span>
+                <span class="s6-approval-badge">Pending human decision</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sh-caption s6-caption" id="s6-caption">Coordinated response &mdash; human-approved</div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo('.sh-sidebar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('.sh-topbar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('.s6-header', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3 }, 0.05);
+        tl.fromTo('#s6-caption', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }, 0.2);
+
+        tl.fromTo('#s6-card1', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 }, 0.4);
+        tl.set('#s6-c1 svg', { opacity: 0 }, 0.7);
+        tl.to('#s6-c1 svg', { opacity: 1, duration: 0.01 }, 0.75);
+        tl.set('#s6-c2 svg', { opacity: 0 }, 1.15);
+        tl.to('#s6-c2 svg', { opacity: 1, duration: 0.01 }, 1.2);
+        tl.fromTo('#s6-c3', { scale: 1 }, { scale: 1.12, duration: 0.25, yoyo: true, repeat: 1, ease: 'power1.inOut' }, 1.7);
+
+        tl.fromTo('#s6-card2', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 }, 2.4);
+        tl.fromTo('.s6-approval-row', { boxShadow: '0 0 0 0 rgba(139,115,85,0)' }, { boxShadow: '0 0 0 3px rgba(139,115,85,0.35)', duration: 0.4, yoyo: true, repeat: 1 }, 2.7);
+
+        tl.to('#s6-caption', { opacity: 0, duration: 0.3 }, 7.2);
+        window.__timelines['scene6-response'] = tl;
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #16171B; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; }
+      #root > div[data-composition-src] { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="root"
+      data-start="0"
+      data-duration="55"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div id="el-s1" data-composition-id="scene1-opening" data-composition-src="compositions/scene1-opening.html"
+        data-start="0" data-duration="5" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <div id="el-s2" data-composition-id="scene2-overview" data-composition-src="compositions/scene2-overview.html"
+        data-start="5" data-duration="7" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <div id="el-s3" data-composition-id="scene3-incident" data-composition-src="compositions/scene3-incident.html"
+        data-start="12" data-duration="7" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <div id="el-s4" data-composition-id="scene4-ai" data-composition-src="compositions/scene4-ai.html"
+        data-start="19" data-duration="8" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <div id="el-s5" data-composition-id="scene5-intel" data-composition-src="compositions/scene5-intel.html"
+        data-start="27" data-duration="7" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <div id="el-s6" data-composition-id="scene6-response" data-composition-src="compositions/scene6-response.html"
+        data-start="34" data-duration="8" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <div id="el-s7" data-composition-id="scene7-montage" data-composition-src="compositions/scene7-montage.html"
+        data-start="42" data-duration="8" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <div id="el-s8" data-composition-id="scene8-outro" data-composition-src="compositions/scene8-outro.html"
+        data-start="50" data-duration="5" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <!-- Music bed: continuous across the whole composition, low/restrained per the tone.
+           Substitution note: bundled /brag library has no dark-industrial track; using the
+           closest available ("steady and clean") track at a deliberately low, restrained
+           volume so it reads as a quiet bed rather than upbeat corporate music. -->
+      <audio id="music-bed" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"
+        data-start="0" data-duration="55" data-track-index="10"
+        data-automation='{"version":1,"lanes":[{"target":"volume","points":[
+          {"t":0,"v":0},{"t":1,"v":0.16},{"t":5,"v":0.18},{"t":12,"v":0.19},
+          {"t":19,"v":0.21},{"t":27,"v":0.23},{"t":34,"v":0.27},{"t":42,"v":0.27},
+          {"t":50,"v":0.16},{"t":54,"v":0.08},{"t":55,"v":0}]}]}'
+      ></audio>
+
+      <!-- Scene 1: typed-command key ticks -->
+      <audio id="sfx-key-1" src="assets/sfx/keyboard/keypress-001.wav" data-start="0.40" data-duration="0.15" data-track-index="20" data-volume="0.45"></audio>
+      <audio id="sfx-key-2" src="assets/sfx/keyboard/keypress-004.wav" data-start="0.65" data-duration="0.15" data-track-index="21" data-volume="0.45"></audio>
+      <audio id="sfx-key-3" src="assets/sfx/keyboard/keypress-007.wav" data-start="0.90" data-duration="0.15" data-track-index="22" data-volume="0.45"></audio>
+      <audio id="sfx-key-4" src="assets/sfx/keyboard/keypress-011.wav" data-start="1.15" data-duration="0.15" data-track-index="23" data-volume="0.45"></audio>
+      <audio id="sfx-key-5" src="assets/sfx/keyboard/keypress-015.wav" data-start="1.40" data-duration="0.15" data-track-index="24" data-volume="0.45"></audio>
+      <audio id="sfx-key-6" src="assets/sfx/keyboard/keypress-019.wav" data-start="1.65" data-duration="0.15" data-track-index="25" data-volume="0.45"></audio>
+      <audio id="sfx-key-7" src="assets/sfx/keyboard/keypress-023.wav" data-start="1.90" data-duration="0.15" data-track-index="26" data-volume="0.45"></audio>
+      <audio id="sfx-key-8" src="assets/sfx/keyboard/keypress-027.wav" data-start="2.15" data-duration="0.15" data-track-index="27" data-volume="0.45"></audio>
+
+      <!-- Scene 2: new incident row lands — beat-locked to 8.74s strong cue -->
+      <audio id="sfx-row-land" src="assets/sfx/interface/drop_002.ogg" data-start="8.74" data-duration="0.19" data-track-index="30" data-volume="0.6"></audio>
+
+      <!-- Scene 3: risk score reveal — beat-locked to 13.11s strong cue -->
+      <audio id="sfx-risk-reveal" src="assets/sfx/impact/impactSoft_medium_001.ogg" data-start="13.11" data-duration="0.18" data-track-index="31" data-volume="0.55"></audio>
+
+      <!-- Scene 4: ML triage badge — beat-locked to 19.66s strong cue -->
+      <audio id="sfx-ml-badge" src="assets/sfx/interface/drop_001.ogg" data-start="19.66" data-duration="0.11" data-track-index="32" data-volume="0.55"></audio>
+      <!-- Scene 4: LLM analysis result confirmation -->
+      <audio id="sfx-llm-result" src="assets/sfx/interface/bong_001.ogg" data-start="22.45" data-duration="0.12" data-track-index="33" data-volume="0.45"></audio>
+
+      <!-- Scene 5: IOC verdict badge lands -->
+      <audio id="sfx-verdict" src="assets/sfx/interface/drop_002.ogg" data-start="29.25" data-duration="0.19" data-track-index="34" data-volume="0.55"></audio>
+
+      <!-- Scene 6: playbook steps verify, then pending-approval highlight -->
+      <audio id="sfx-step-1" src="assets/sfx/interface/drop_001.ogg" data-start="34.75" data-duration="0.11" data-track-index="35" data-volume="0.4"></audio>
+      <audio id="sfx-step-2" src="assets/sfx/interface/drop_001.ogg" data-start="35.20" data-duration="0.11" data-track-index="36" data-volume="0.4"></audio>
+      <audio id="sfx-approval" src="assets/sfx/impact/impactSoft_medium_001.ogg" data-start="36.70" data-duration="0.18" data-track-index="37" data-volume="0.5"></audio>
+
+      <!-- Scene 8: closing wordmark accent -->
+      <audio id="sfx-outro-bell" src="assets/sfx/impact/impactBell_heavy_003.ogg" data-start="51.35" data-duration="0.65" data-track-index="38" data-volume="0.42"></audio>
+    </div>
+    <script>
+      window.__timelines['root'] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

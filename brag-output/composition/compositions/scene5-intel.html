@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root { position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden; }
+        .s5-caption { opacity: 0; }
+        .s5-header { opacity: 0; transform: translateY(8px); margin-bottom: 16px; }
+        .s5-enrich { display: flex; align-items: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 16px; opacity: 0; transform: translateY(8px); }
+        .s5-type { padding: 10px 14px; background: var(--bg-secondary); border-right: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); }
+        .s5-value { flex: 1; padding: 10px 14px; font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); }
+        .s5-value .car { display: inline-block; width: 7px; height: 15px; background: var(--accent); margin-left: 2px; vertical-align: -2px; opacity: 0; }
+        .s5-value .vch { opacity: 0; }
+        .s5-enrich-btn { padding: 10px 18px; background: var(--accent); color: var(--accent-ink); font-size: 12.5px; font-weight: 700; }
+        .s5-table-card { opacity: 0; transform: translateY(8px); }
+        .s5-verdict { display: inline-flex; padding: 3px 9px; border-radius: 4px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; }
+        .v-malicious { background: var(--critical); color: #fff; }
+        .v-benign { background: rgba(74,124,89,0.16); color: var(--success); border: 1px solid rgba(74,124,89,0.35); }
+        .v-queued { background: var(--info-wash); color: var(--info); border: 1px solid rgba(74,124,140,0.35); }
+        .s5-cursor { position: absolute; width: 20px; height: 20px; opacity: 0; }
+        .s5-cursor svg { width: 100%; height: 100%; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
+        .s5-newrow { opacity: 0; }
+        .s5-newrow td { background: var(--accent-wash); }
+      </style>
+
+      <div id="root" data-composition-id="scene5-intel" data-width="1920" data-height="1080">
+        <div class="sh-frame">
+          <div class="sh-sidebar">
+            <div class="sh-brand"><div class="sh-brand-icon">SI</div><div class="sh-brand-name">Soar Intelligence</div></div>
+            <div class="sh-nav">
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Overview</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Incidents</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Approvals</div>
+              <div class="sh-nav-link active"><span class="sh-nav-dot"></span>Threat Intel</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Assets</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Playbooks</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>AI &amp; Analysis</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>System</div>
+            </div>
+          </div>
+          <div class="sh-topbar">
+            <div class="sh-breadcrumb">SOAR INTELLIGENCE / <strong>THREAT INTEL</strong></div>
+            <div class="sh-live"><span class="sh-live-dot"></span>LIVE FEED</div>
+          </div>
+          <div class="sh-content">
+            <div class="s5-header">
+              <div class="sh-page-title">Threat Intel</div>
+              <div class="sh-page-sub">MISP &amp; local feeds &middot; results stored per indicator</div>
+            </div>
+
+            <div class="s5-enrich">
+              <div class="s5-type">IP address</div>
+              <div class="s5-value" id="s5-value"><span class="vch">1</span><span class="vch">0</span><span class="vch">.</span><span class="vch">0</span><span class="vch">.</span><span class="vch">2</span><span class="vch">.</span><span class="vch">1</span><span class="vch">4</span><span class="car"></span></div>
+              <div class="s5-enrich-btn">Enrich</div>
+            </div>
+
+            <div class="sh-card s5-table-card">
+              <div class="sh-section-title">Indicators of compromise</div>
+              <div class="sh-table-wrap">
+                <table class="sh-table">
+                  <thead><tr><th>Type</th><th>Value</th><th>Verdict</th><th>Provider</th><th>Incident</th></tr></thead>
+                  <tbody>
+                    <tr><td class="sh-mono">domain</td><td class="sh-mono">update-secure-login.net</td><td><span class="s5-verdict v-malicious">Malicious</span></td><td>MISP</td><td class="sh-mono">INC-1039</td></tr>
+                    <tr><td class="sh-mono">hash</td><td class="sh-mono">a13f...9e02</td><td><span class="s5-verdict v-benign">Benign</span></td><td>local feed</td><td class="sh-mono">INC-1040</td></tr>
+                    <tr class="s5-newrow" id="s5-newrow">
+                      <td class="sh-mono">ip</td><td class="sh-mono">10.0.2.14</td>
+                      <td><span class="s5-verdict v-malicious" id="s5-verdict">Malicious</span></td>
+                      <td>MISP</td><td class="sh-mono">INC-1042</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="s5-cursor" id="s5-cursor">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 2L4 20L9 15.5L12.5 22L15 20.5L11.5 14L18 14L4 2Z" fill="#E2E3E8" stroke="#16171B" stroke-width="1"/></svg>
+        </div>
+        <div class="sh-caption s5-caption" id="s5-caption">Enrich every signal with context</div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo('.sh-sidebar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('.sh-topbar', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 0);
+        tl.fromTo('.s5-header', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3 }, 0.05);
+        tl.fromTo('#s5-caption', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }, 0.2);
+        tl.fromTo('.s5-enrich', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3 }, 0.45);
+
+        const vchars = gsap.utils.toArray('#s5-value .vch');
+        tl.set('#s5-value .car', { opacity: 1 }, 0.8);
+        tl.to(vchars, { opacity: 1, duration: 0.01, stagger: 0.075 }, 0.85);
+
+        tl.fromTo('.s5-table-card', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3 }, 1.5);
+
+        tl.set('#s5-cursor', { x: 1720, y: 260, opacity: 0 }, 1.6);
+        tl.to('#s5-cursor', { opacity: 1, duration: 0.15 }, 1.6);
+        tl.to('#s5-cursor', { x: 1760, y: 232, duration: 0.4, ease: 'power2.inOut' }, 1.7);
+        tl.to('#s5-cursor', { opacity: 0, duration: 0.15 }, 2.05);
+
+        tl.fromTo('#s5-newrow', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 2.15);
+        tl.fromTo('#s5-verdict', { opacity: 0, scale: 0.85, backgroundColor: 'rgba(74,124,140,0.16)', color: '#5C9AAC' },
+          { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(1.6)' }, 2.25);
+        tl.fromTo('#s5-newrow td', { backgroundColor: 'rgba(155,152,184,0.30)' }, { backgroundColor: 'rgba(155,152,184,0)', duration: 0.8 }, 2.25);
+
+        tl.to('#s5-caption', { opacity: 0, duration: 0.3 }, 6.2);
+        window.__timelines['scene5-intel'] = tl;
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root {
+          position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden;
+        }
+        .s1-grid {
+          position: absolute; inset: 0;
+          background-image: linear-gradient(var(--border) 1px, transparent 1px),
+            linear-gradient(90deg, var(--border) 1px, transparent 1px);
+          background-size: 48px 48px; background-position: center;
+          opacity: 0.55;
+        }
+        .s1-vignette {
+          position: absolute; inset: 0;
+          background: radial-gradient(ellipse 60% 55% at 50% 46%, transparent 0%, var(--bg-primary) 78%);
+        }
+        .s1-prompt {
+          position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+          display: flex; align-items: center; gap: 14px;
+          font-family: var(--font-mono); font-size: 34px; color: var(--text-primary);
+          white-space: nowrap;
+        }
+        .s1-caret { color: var(--accent); font-weight: 500; }
+        .s1-cmd .ch { opacity: 0; }
+        .s1-cursor {
+          display: inline-block; width: 14px; height: 34px; background: var(--accent);
+          margin-left: 2px; opacity: 0;
+        }
+        .s1-pulse {
+          position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%;
+          background: var(--success); transform: translate(-50%, 140px); opacity: 0;
+        }
+      </style>
+
+      <div id="root" data-composition-id="scene1-opening" data-width="1920" data-height="1080">
+        <div class="s1-grid"></div>
+        <div class="s1-vignette"></div>
+        <div class="s1-prompt">
+          <span class="s1-caret">$</span>
+          <span class="s1-cmd" id="s1-cmd">
+            <span class="ch">s</span><span class="ch">o</span><span class="ch">a</span><span class="ch">r</span><span class="ch">&nbsp;</span><span class="ch">s</span><span class="ch">i</span><span class="ch">m</span><span class="ch">u</span><span class="ch">l</span><span class="ch">a</span><span class="ch">t</span><span class="ch">e</span><span class="ch">&nbsp;</span><span class="ch">b</span><span class="ch">r</span><span class="ch">u</span><span class="ch">t</span><span class="ch">e</span><span class="ch">_</span><span class="ch">f</span><span class="ch">o</span><span class="ch">r</span><span class="ch">c</span><span class="ch">e</span>
+          </span>
+          <span class="s1-cursor" id="s1-cursor"></span>
+        </div>
+        <div class="s1-pulse" id="s1-pulse"></div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        const chars = gsap.utils.toArray('#s1-cmd .ch');
+        tl.set('#s1-cursor', { opacity: 1 }, 0.3);
+        tl.to('#s1-cursor', { opacity: 0.15, duration: 0.45, repeat: 5, yoyo: true, ease: 'none' }, 0.3);
+        tl.to(chars, { opacity: 1, duration: 0.01, stagger: 0.085 }, 0.4);
+        tl.fromTo('#s1-pulse', { opacity: 0, scale: 0.6 }, { opacity: 0.7, scale: 1, duration: 0.5, ease: 'power2.out' }, 2.75);
+        tl.to('#s1-pulse', { opacity: 0, duration: 0.6, ease: 'power1.in' }, 3.6);
+        window.__timelines['scene1-opening'] = tl;
+      </script>
+    </template>
+  </body>
+</html>

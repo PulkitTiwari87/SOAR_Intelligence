@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root { position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden; }
+        .s7-phase { position: absolute; inset: 0; opacity: 0; display: flex; align-items: center; justify-content: center; }
+        .s7-fragment { width: 900px; }
+        .s7-word {
+          position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%);
+          font-family: var(--font-mono); font-weight: 700; font-size: 64px; letter-spacing: 0.08em;
+          color: var(--text-primary); opacity: 0;
+        }
+        .s7-row { display: flex; gap: 12px; }
+        .s7-mini-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+        .s7-mini-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+        .s7-mini-value { font-size: 22px; font-weight: 600; }
+      </style>
+
+      <div id="root" data-composition-id="scene7-montage" data-width="1920" data-height="1080">
+        <div class="sh-frame">
+
+          <div class="s7-phase" id="s7-p1">
+            <div class="s7-fragment">
+              <div class="s7-row">
+                <div class="s7-mini-stat"><div class="s7-mini-label">Critical (open)</div><div class="s7-mini-value" style="color:var(--critical)">1</div></div>
+                <div class="s7-mini-stat"><div class="s7-mini-label">Active incidents</div><div class="s7-mini-value">1</div></div>
+                <div class="s7-mini-stat"><div class="s7-mini-label">Alerts today</div><div class="s7-mini-value">3</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="s7-phase" id="s7-p2">
+            <div class="s7-fragment sh-card">
+              <div class="sh-section-title">Risk score breakdown</div>
+              <div style="font-family:var(--font-mono); font-size:44px; font-weight:700;">82<span style="font-size:16px; color:var(--text-muted);"> / 100</span></div>
+              <div style="font-size:12.5px; color:var(--text-secondary); margin-top:8px;">T1110 Brute Force &middot; T1078 Valid Accounts</div>
+            </div>
+          </div>
+
+          <div class="s7-phase" id="s7-p3">
+            <div class="s7-fragment sh-card">
+              <div class="sh-section-title">Indicators of compromise</div>
+              <div style="display:flex; align-items:center; gap:12px; font-family:var(--font-mono); font-size:14px;">
+                <span class="sh-badge sh-badge-critical" style="font-size:10.5px;">Malicious</span>
+                <span>10.0.2.14</span><span style="color:var(--text-muted);">&middot; MISP</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="s7-phase" id="s7-p4">
+            <div class="s7-fragment" style="padding:14px 16px; border:1px solid var(--warning); border-radius:8px; background:var(--warning-wash); display:flex; align-items:center; gap:14px;">
+              <span style="font-family:var(--font-mono); font-weight:700; color:var(--warning); font-size:15px;">block_ip</span>
+              <span style="flex:1; font-size:13px; color:var(--text-secondary);">10.0.2.14 &middot; INC-1042</span>
+              <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--warning);">Pending human decision</span>
+            </div>
+          </div>
+
+          <div class="s7-phase" id="s7-p5">
+            <div class="s7-fragment sh-card">
+              <div class="sh-section-title">brute_force_response &middot; INC-1042</div>
+              <div style="display:flex; gap:16px; font-size:13px;">
+                <span style="color:var(--success);">&#10003; notify_analyst</span>
+                <span style="color:var(--success);">&#10003; rate_limit_source</span>
+                <span style="color:var(--warning);">&#9679; block_ip</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="s7-word" id="s7-w1">DETECT</div>
+        <div class="s7-word" id="s7-w2">ANALYZE</div>
+        <div class="s7-word" id="s7-w3">ENRICH</div>
+        <div class="s7-word" id="s7-w4">RESPOND</div>
+        <div class="s7-word" id="s7-w5">AUTOMATE</div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        const phases = ['#s7-p1', '#s7-p2', '#s7-p3', '#s7-p4', '#s7-p5'];
+        const words = ['#s7-w1', '#s7-w2', '#s7-w3', '#s7-w4', '#s7-w5'];
+        const step = 1.6;
+        phases.forEach((sel, i) => {
+          const t = i * step;
+          tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: 0.18 }, t);
+          tl.fromTo(words[i], { opacity: 0 }, { opacity: 1, duration: 0.18 }, t);
+          if (i < phases.length - 1) {
+            tl.to(sel, { opacity: 0, duration: 0.12 }, t + step - 0.12);
+            tl.to(words[i], { opacity: 0, duration: 0.12 }, t + step - 0.12);
+          }
+        });
+        window.__timelines['scene7-montage'] = tl;
+      </script>
+    </template>
+  </body>
+</html>

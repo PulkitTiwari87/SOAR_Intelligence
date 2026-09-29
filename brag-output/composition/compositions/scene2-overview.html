@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root { position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden; }
+        .s2-caption { opacity: 0; }
+        .s2-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 18px; }
+        .s2-stats .sh-stat { opacity: 0; transform: translateY(14px); }
+        .s2-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+        .s2-charts .sh-card { opacity: 0; transform: translateY(10px); height: 210px; }
+        .s2-donut-wrap { display: flex; align-items: center; gap: 22px; height: 150px; }
+        .s2-donut { width: 140px; height: 140px; border-radius: 50%; flex-shrink: 0;
+          background: conic-gradient(var(--critical) 0deg 216deg, var(--warning) 216deg 288deg, var(--success) 288deg 360deg);
+          position: relative; }
+        .s2-donut::after { content: ''; position: absolute; inset: 22px; border-radius: 50%; background: var(--bg-card); }
+        .s2-legend { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+        .s2-legend span.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 7px; }
+        .s2-bars { display: flex; flex-direction: column; gap: 12px; height: 150px; justify-content: center; }
+        .s2-bar-row { display: flex; align-items: center; gap: 10px; }
+        .s2-bar-label { width: 62px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+        .s2-bar-track { flex: 1; height: 12px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+        .s2-bar-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 3px; }
+        .s2-table-card { opacity: 0; transform: translateY(10px); }
+        .s2-empty-row td { color: var(--text-muted); font-size: 13px; padding: 14px; }
+        .s2-new-row { opacity: 0; }
+        .s2-new-row td { background: var(--accent-wash); }
+      </style>
+
+      <div id="root" data-composition-id="scene2-overview" data-width="1920" data-height="1080">
+        <div class="sh-frame">
+          <div class="sh-sidebar">
+            <div class="sh-brand"><div class="sh-brand-icon">SI</div><div class="sh-brand-name">Soar Intelligence</div></div>
+            <div class="sh-nav">
+              <div class="sh-nav-link active"><span class="sh-nav-dot"></span>Overview</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Incidents</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Approvals</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Threat Intel</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Assets</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>Playbooks</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>AI &amp; Analysis</div>
+              <div class="sh-nav-link"><span class="sh-nav-dot"></span>System</div>
+            </div>
+          </div>
+          <div class="sh-topbar">
+            <div class="sh-breadcrumb">SOAR INTELLIGENCE / <strong>OVERVIEW</strong></div>
+            <div class="sh-live"><span class="sh-live-dot"></span>LIVE FEED</div>
+          </div>
+          <div class="sh-content">
+            <div class="sh-page-title">Overview</div>
+            <div class="sh-page-sub">Live security operations picture, computed from stored incidents</div>
+
+            <div class="s2-stats" id="s2-stats">
+              <div class="sh-stat"><div class="sh-stat-icon red">&#9679;</div><div><div class="sh-stat-label">Critical (open)</div><div class="sh-stat-value">1</div></div></div>
+              <div class="sh-stat"><div class="sh-stat-icon blue">&#9679;</div><div><div class="sh-stat-label">Active incidents</div><div class="sh-stat-value">1</div></div></div>
+              <div class="sh-stat"><div class="sh-stat-icon yellow">&#9679;</div><div><div class="sh-stat-label">Alerts today</div><div class="sh-stat-value">3</div></div></div>
+              <div class="sh-stat"><div class="sh-stat-icon green">&#9679;</div><div><div class="sh-stat-label">Automated responses</div><div class="sh-stat-value">2</div></div></div>
+              <div class="sh-stat"><div class="sh-stat-icon blue">&#9679;</div><div><div class="sh-stat-label">MTTD</div><div class="sh-stat-value">2m 14s</div></div></div>
+              <div class="sh-stat"><div class="sh-stat-icon blue">&#9679;</div><div><div class="sh-stat-label">MTTR</div><div class="sh-stat-value">&mdash;</div></div></div>
+            </div>
+
+            <div class="s2-charts">
+              <div class="sh-card">
+                <div class="sh-section-title">Incidents by severity</div>
+                <div class="s2-donut-wrap">
+                  <div class="s2-donut"></div>
+                  <div class="s2-legend">
+                    <div><span class="dot" style="background:var(--critical)"></span>Critical</div>
+                    <div><span class="dot" style="background:var(--warning)"></span>Medium</div>
+                    <div><span class="dot" style="background:var(--success)"></span>Low</div>
+                  </div>
+                </div>
+              </div>
+              <div class="sh-card">
+                <div class="sh-section-title">Top ATT&amp;CK techniques</div>
+                <div class="s2-bars">
+                  <div class="s2-bar-row"><span class="s2-bar-label">T1110</span><div class="s2-bar-track"><div class="s2-bar-fill" id="s2-bar1"></div></div></div>
+                  <div class="s2-bar-row"><span class="s2-bar-label">T1078</span><div class="s2-bar-track"><div class="s2-bar-fill" id="s2-bar2"></div></div></div>
+                  <div class="s2-bar-row"><span class="s2-bar-label">T1021</span><div class="s2-bar-track"><div class="s2-bar-fill" id="s2-bar3"></div></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sh-card s2-table-card">
+              <div class="sh-section-title">Latest incidents</div>
+              <div class="sh-table-wrap">
+                <table class="sh-table">
+                  <thead><tr><th>ID</th><th>Title</th><th>Severity</th><th>Status</th><th>Risk</th><th>Detected</th></tr></thead>
+                  <tbody>
+                    <tr class="s2-new-row" id="s2-new-row">
+                      <td class="sh-mono">INC-1042</td>
+                      <td>Brute-force login attempts &mdash; 10.0.2.14</td>
+                      <td><span class="sh-badge sh-badge-critical">Critical</span></td>
+                      <td><span class="sh-badge sh-badge-open">Open</span></td>
+                      <td class="sh-mono">82</td>
+                      <td class="sh-mono">just now</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="sh-caption s2-caption" id="s2-caption">One operational picture for the SOC</div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo('.sh-sidebar', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 0);
+        tl.fromTo('.sh-topbar', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 0);
+        tl.fromTo('#s2-caption', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 }, 0.15);
+
+        const cards = gsap.utils.toArray('#s2-stats .sh-stat');
+        // beat-grid: stat 1 at 0.34s, stat 2 at 1.00s, stat 3 at 1.56s, stat 4 at 2.09s, stat 5 at 2.64s, stat 6 at 3.19s (global 5.34-8.19)
+        const cardBeats = [0.34, 1.00, 1.56, 2.09, 2.64, 3.19];
+        cards.forEach((c, i) => {
+          tl.fromTo(c, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.32, ease: 'power2.out' }, cardBeats[i]);
+        });
+
+        tl.fromTo('.s2-charts .sh-card', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.12 }, 3.4);
+        tl.fromTo('#s2-bar1', { width: '0%' }, { width: '86%', duration: 0.5, ease: 'power2.out' }, 3.7);
+        tl.fromTo('#s2-bar2', { width: '0%' }, { width: '58%', duration: 0.5, ease: 'power2.out' }, 3.8);
+        tl.fromTo('#s2-bar3', { width: '0%' }, { width: '31%', duration: 0.5, ease: 'power2.out' }, 3.9);
+
+        tl.fromTo('.s2-table-card', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35 }, 3.3);
+        // beat-locked: 3.74s (global 8.74s strong cue) — new incident row lands
+        tl.fromTo('#s2-new-row', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 3.74);
+        tl.fromTo('#s2-new-row td', { backgroundColor: 'rgba(155,152,184,0.30)' }, { backgroundColor: 'rgba(155,152,184,0)', duration: 0.8, ease: 'power1.out' }, 3.74);
+
+        tl.to('#s2-caption', { opacity: 0, duration: 0.3 }, 6.2);
+        window.__timelines['scene2-overview'] = tl;
+      </script>
+    </template>
+  </body>
+</html>

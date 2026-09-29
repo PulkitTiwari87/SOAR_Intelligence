@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="assets/shell.css" />
+  </head>
+  <body>
+    <template>
+      <style>
+        #root { position: absolute; inset: 0; background: var(--bg-primary); overflow: hidden; }
+        .s8-bg { position: absolute; inset: 0; transform: scale(1.03); opacity: 0; }
+        .s8-dim { position: absolute; inset: 0; background: var(--bg-primary); opacity: 0; }
+        .s8-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .s8-word { display: flex; align-items: center; gap: 12px; justify-content: center; opacity: 0; margin-bottom: 14px; }
+        .s8-word-icon { width: 34px; height: 34px; border-radius: 7px; background: var(--accent-wash); display: flex; align-items: center; justify-content: center; color: var(--accent); font-family: var(--font-mono); font-weight: 700; font-size: 16px; }
+        .s8-word-text { font-size: 26px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-primary); }
+        .s8-pipeline { font-family: var(--font-mono); font-size: 15px; letter-spacing: 0.12em; color: var(--text-secondary); opacity: 0; }
+        .s8-fadeout { position: absolute; inset: 0; background: #000; opacity: 0; }
+        .s8-row { display: flex; gap: 12px; }
+        .s8-mini { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+      </style>
+
+      <div id="root" data-composition-id="scene8-outro" data-width="1920" data-height="1080">
+        <div class="sh-frame">
+          <div class="s8-bg" id="s8-bg">
+            <div class="sh-sidebar">
+              <div class="sh-brand"><div class="sh-brand-icon">SI</div><div class="sh-brand-name">Soar Intelligence</div></div>
+              <div class="sh-nav">
+                <div class="sh-nav-link active"><span class="sh-nav-dot"></span>Overview</div>
+                <div class="sh-nav-link"><span class="sh-nav-dot"></span>Incidents</div>
+                <div class="sh-nav-link"><span class="sh-nav-dot"></span>Approvals</div>
+                <div class="sh-nav-link"><span class="sh-nav-dot"></span>Threat Intel</div>
+                <div class="sh-nav-link"><span class="sh-nav-dot"></span>Playbooks</div>
+                <div class="sh-nav-link"><span class="sh-nav-dot"></span>AI &amp; Analysis</div>
+              </div>
+            </div>
+            <div class="sh-topbar">
+              <div class="sh-breadcrumb">SOAR INTELLIGENCE / <strong>OVERVIEW</strong></div>
+              <div class="sh-live"><span class="sh-live-dot"></span>LIVE FEED</div>
+            </div>
+            <div class="sh-content">
+              <div class="sh-page-title">Overview</div>
+              <div class="sh-page-sub">Live security operations picture, computed from stored incidents</div>
+              <div class="s8-row">
+                <div class="s8-mini"><div class="sh-stat-label">Critical (open)</div><div class="sh-stat-value" style="color:var(--critical)">1</div></div>
+                <div class="s8-mini"><div class="sh-stat-label">Active incidents</div><div class="sh-stat-value">1</div></div>
+                <div class="s8-mini"><div class="sh-stat-label">Automated responses</div><div class="sh-stat-value">2</div></div>
+                <div class="s8-mini"><div class="sh-stat-label">MTTD</div><div class="sh-stat-value">2m 14s</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="s8-dim" id="s8-dim"></div>
+          <div class="s8-center">
+            <div class="s8-word" id="s8-word">
+              <div class="s8-word-icon">SI</div>
+              <div class="s8-word-text">SOAR INTELLIGENCE</div>
+            </div>
+            <div class="s8-pipeline" id="s8-pipeline">DETECT &middot; ANALYZE &middot; ENRICH &middot; RESPOND &middot; AUTOMATE</div>
+          </div>
+          <div class="s8-fadeout" id="s8-fadeout"></div>
+        </div>
+      </div>
+
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo('#s8-bg', { opacity: 0, scale: 1.03 }, { opacity: 1, scale: 1.0, duration: 0.6, ease: 'power2.out' }, 0);
+        tl.to('#s8-dim', { opacity: 0.55, duration: 0.6, ease: 'power1.out' }, 1.0);
+        tl.fromTo('#s8-word', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 1.35);
+        tl.fromTo('#s8-pipeline', { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, 1.95);
+        tl.to('#s8-fadeout', { opacity: 1, duration: 0.7, ease: 'power1.in' }, 4.25);
+        window.__timelines['scene8-outro'] = tl;
+      </script>
+    </template>
+  </body>
+</html>
